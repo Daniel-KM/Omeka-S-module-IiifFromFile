@@ -13,6 +13,8 @@ use Omeka\Api\Representation\MediaRepresentation;
  *
  * @link https://api.nakala.fr/doc
  * @link https://documentation.huma-num.fr/nakala/
+ * @link https://documentation.huma-num.fr/nakala-guide-de-description/
+ * @link https://gitlab.huma-num.fr/huma-num-public/notebook-api-nakala/-/blob/master/tp-depot-par-lot.ipynb
  */
 class NakalaConnector implements RepositoryConnectorInterface
 {
@@ -103,15 +105,17 @@ class NakalaConnector implements RepositoryConnectorInterface
         string $filePath,
         MediaRepresentation $media
     ): ?array {
-        $url = $this->apiUrl . '/uploads';
+        $url = $this->apiUrl . '/datas/uploads';
         $this->lastError = '';
 
-        $this->logger->info(sprintf(
-            'Nakala: uploading file for media #%d (%s, %s bytes).',
-            $media->id(),
-            basename($filePath),
-            filesize($filePath)
-        ));
+        $this->logger->info(
+            'Nakala: uploading file for media #{media_id} ({filename}, {size} bytes).', // @translate
+            [
+                'media_id' => $media->id(),
+                'filename' => basename($filePath),
+                'size' => filesize($filePath),
+            ]
+        );
 
         $this->httpClient->reset();
         $this->httpClient->setUri($url);
@@ -144,11 +148,10 @@ class NakalaConnector implements RepositoryConnectorInterface
                 $code,
                 $this->extractErrorMessage($body)
             );
-            $this->logger->err(sprintf(
-                'Nakala: media #%d: %s',
-                $media->id(),
-                $this->lastError
-            ));
+            $this->logger->err(
+                'Nakala: media #{media_id}: {error}', // @translate
+                ['media_id' => $media->id(), 'error' => $this->lastError]
+            );
             return null;
         }
 
@@ -156,19 +159,17 @@ class NakalaConnector implements RepositoryConnectorInterface
         if (empty($result['sha1'])) {
             $this->lastError = 'Upload response missing sha1: '
                 . substr($body, 0, 300);
-            $this->logger->err(sprintf(
-                'Nakala: media #%d: %s',
-                $media->id(),
-                $this->lastError
-            ));
+            $this->logger->err(
+                'Nakala: media #{media_id}: {error}', // @translate
+                ['media_id' => $media->id(), 'error' => $this->lastError]
+            );
             return null;
         }
 
-        $this->logger->info(sprintf(
-            'Nakala: media #%d: file uploaded, sha1=%s.',
-            $media->id(),
-            $result['sha1']
-        ));
+        $this->logger->info(
+            'Nakala: media #{media_id}: file uploaded, sha1={sha1}.', // @translate
+            ['media_id' => $media->id(), 'sha1' => $result['sha1']]
+        );
 
         return [
             'file_id' => $result['sha1'],
@@ -200,8 +201,7 @@ class NakalaConnector implements RepositoryConnectorInterface
             'files' => [
                 [
                     'sha1' => $sha1,
-                    'name' => $media->filename()
-                        ?: ($media->source() ?: 'file.jpg'),
+                    'name' => $media->filename() ?: ($media->source() ?: 'file.jpg'),
                 ],
             ],
             'metas' => $metas,
@@ -213,14 +213,26 @@ class NakalaConnector implements RepositoryConnectorInterface
             $body['collectionsIds'] = [$collectionId];
         }
 
-        $this->logger->info(sprintf(
-            'Nakala: creating data for media #%d with %d metas, '
-            . 'collection=%s, status=%s.',
-            $media->id(),
-            count($metas),
-            $collectionId ?: '(none)',
-            $body['status']
-        ));
+        $missingMetas = $this->checkMandatoryMetas($metas);
+        if ($missingMetas) {
+            $this->logger->warn(
+                'Nakala: media #{media_id}: missing mandatory metadata: {metas}.', // @translate
+                [
+                    'media_id' => $media->id(),
+                    'metas' => implode(', ', $missingMetas),
+                ]
+            );
+        }
+
+        $this->logger->info(
+            'Nakala: creating data for media #{media_id} with {count} metas, collection={collection}, status={status}.', // @translate
+            [
+                'media_id' => $media->id(),
+                'count' => count($metas),
+                'collection' => $collectionId ?: '(none)',
+                'status' => $body['status'],
+            ]
+        );
 
         $this->httpClient->reset();
         $this->httpClient->setUri($url);
@@ -239,11 +251,10 @@ class NakalaConnector implements RepositoryConnectorInterface
             $response = $this->httpClient->send();
         } catch (\Throwable $e) {
             $this->lastError = 'Create data failed: ' . $e->getMessage();
-            $this->logger->err(sprintf(
-                'Nakala: media #%d: %s',
-                $media->id(),
-                $this->lastError
-            ));
+            $this->logger->err(
+                'Nakala: media #{media_id}: {error}', // @translate
+                ['media_id' => $media->id(), 'error' => $this->lastError]
+            );
             return null;
         }
 
@@ -256,42 +267,59 @@ class NakalaConnector implements RepositoryConnectorInterface
                 $code,
                 $this->extractErrorMessage($responseBody)
             );
-            $this->logger->err(sprintf(
-                'Nakala: media #%d: %s. Request body: %s',
-                $media->id(),
-                $this->lastError,
-                substr(json_encode($body), 0, 500)
-            ));
+            $this->logger->err(
+                'Nakala: media #{media_id}: {error}. Response: {response}. Request body: {request}', // @translate
+                [
+                    'media_id' => $media->id(),
+                    'error' => $this->lastError,
+                    'response' => substr($responseBody, 0, 2000),
+                    'request' => substr(json_encode($body,
+                        JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+                    ), 0, 2000),
+                ]
+            );
             return null;
         }
 
         $result = json_decode($responseBody, true);
         $identifier = $result['payload']['id']
             ?? $result['id'] ?? '';
-        $doi = $result['payload']['doi']
-            ?? $result['doi'] ?? '';
 
         if (!$identifier) {
             $this->lastError = 'Response has no identifier: '
                 . substr($responseBody, 0, 300);
-            $this->logger->err(sprintf(
-                'Nakala: media #%d: %s',
-                $media->id(),
-                $this->lastError
-            ));
+            $this->logger->err(
+                'Nakala: media #{media_id}: {error}', // @translate
+                ['media_id' => $media->id(), 'error' => $this->lastError]
+            );
             return null;
         }
 
-        $this->logger->info(sprintf(
-            'Nakala: media #%d: data created, identifier=%s, doi=%s.',
-            $media->id(),
-            $identifier,
-            $doi
-        ));
+        // Fetch the created data to retrieve the canonical DOI
+        // URI assigned by Nakala (only available after creation).
+        $fetched = $this->fetchData($identifier);
+        $doi = $identifier;
+        $dataUri = '';
+        if (is_array($fetched)) {
+            $dataUri = (string) ($fetched['uri'] ?? '');
+            if ($dataUri !== '') {
+                $doi = $dataUri;
+            }
+        }
+
+        $this->logger->info(
+            'Nakala: media #{media_id}: data created, identifier={identifier}, doi={doi}.', // @translate
+            [
+                'media_id' => $media->id(),
+                'identifier' => $identifier,
+                'doi' => $doi,
+            ]
+        );
 
         return [
             'identifier' => $identifier,
             'doi' => $doi,
+            'data_uri' => $dataUri,
             'sha1' => $sha1,
         ];
     }
@@ -305,6 +333,142 @@ class NakalaConnector implements RepositoryConnectorInterface
         }
         return $this->apiUrl . '/iiif/' . $identifier
             . '/' . $sha1 . '/info.json';
+    }
+
+    public function updateData(string $identifier, array $metadata): bool
+    {
+        $this->lastError = '';
+        $url = $this->apiUrl . '/datas/' . $identifier;
+
+        $creatorUri = 'http://nakala.fr/terms#creator';
+        $metas = [];
+        foreach ($metadata as $prop => $value) {
+            if ($value === '' || $value === null) {
+                continue;
+            }
+            $uri = $this->termToUri($prop);
+            if ($uri === $creatorUri) {
+                $metas[] = [
+                    'propertyUri' => $creatorUri,
+                    'value' => [
+                        'givenname' => '',
+                        'surname' => $value,
+                        'orcid' => null,
+                    ],
+                ];
+                continue;
+            }
+            $metas[] = [
+                'propertyUri' => $uri,
+                'value' => $value,
+                'lang' => 'fr',
+                'typeUri' => 'http://www.w3.org/2001/XMLSchema#string',
+            ];
+        }
+
+        $this->httpClient->reset();
+        $this->httpClient->setUri($url);
+        $this->httpClient->setMethod(Request::METHOD_PUT);
+        $this->httpClient->setHeaders([
+            'X-API-KEY' => $this->apiKey,
+            'Accept' => 'application/json',
+            'Content-Type' => 'application/json',
+        ]);
+        $this->httpClient->setRawBody(json_encode(
+            ['metas' => $metas],
+            JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+        ));
+
+        try {
+            $response = $this->httpClient->send();
+        } catch (\Throwable $e) {
+            $this->lastError = 'Update failed: ' . $e->getMessage();
+            $this->logger->err($this->lastError);
+            return false;
+        }
+
+        if (!$response->isSuccess()) {
+            $this->lastError = sprintf(
+                'Update rejected (HTTP %d): %s',
+                $response->getStatusCode(),
+                $this->extractErrorMessage($response->getBody())
+            );
+            $this->logger->err($this->lastError);
+            return false;
+        }
+
+        return true;
+    }
+
+    public function updateStatus(string $identifier, string $status): bool
+    {
+        $this->lastError = '';
+        $url = $this->apiUrl . '/datas/' . $identifier . '/status';
+
+        $this->httpClient->reset();
+        $this->httpClient->setUri($url);
+        $this->httpClient->setMethod(Request::METHOD_PUT);
+        $this->httpClient->setHeaders([
+            'X-API-KEY' => $this->apiKey,
+            'Accept' => 'application/json',
+            'Content-Type' => 'application/json',
+        ]);
+        $this->httpClient->setRawBody(json_encode(
+            ['status' => $status],
+            JSON_UNESCAPED_SLASHES
+        ));
+
+        try {
+            $response = $this->httpClient->send();
+        } catch (\Throwable $e) {
+            $this->lastError = 'Status update failed: ' . $e->getMessage();
+            $this->logger->err($this->lastError);
+            return false;
+        }
+
+        if (!$response->isSuccess()) {
+            $this->lastError = sprintf(
+                'Status update rejected (HTTP %d): %s',
+                $response->getStatusCode(),
+                $this->extractErrorMessage($response->getBody())
+            );
+            $this->logger->err($this->lastError);
+            return false;
+        }
+
+        return true;
+    }
+
+    public function fetchData(string $identifier): ?array
+    {
+        $this->lastError = '';
+        $url = $this->apiUrl . '/datas/' . $identifier;
+
+        $this->httpClient->reset();
+        $this->httpClient->setUri($url);
+        $this->httpClient->setMethod(Request::METHOD_GET);
+        $this->httpClient->setHeaders([
+            'X-API-KEY' => $this->apiKey,
+            'Accept' => 'application/json',
+        ]);
+
+        try {
+            $response = $this->httpClient->send();
+        } catch (\Throwable $e) {
+            $this->lastError = 'Fetch failed: ' . $e->getMessage();
+            return null;
+        }
+
+        if (!$response->isSuccess()) {
+            $this->lastError = sprintf(
+                'Fetch failed (HTTP %d): %s',
+                $response->getStatusCode(),
+                $this->extractErrorMessage($response->getBody())
+            );
+            return null;
+        }
+
+        return json_decode($response->getBody(), true);
     }
 
     public function getLastError(): string
@@ -321,29 +485,58 @@ class NakalaConnector implements RepositoryConnectorInterface
         ItemRepresentation $item
     ): array {
         $metas = [];
+        $creatorUri = 'http://nakala.fr/terms#creator';
+        $typeUri = 'http://nakala.fr/terms#type';
+        $createdUri = 'http://nakala.fr/terms#created';
+        $licenseUri = 'http://nakala.fr/terms#license';
         foreach ($metadata as $remoteProp => $value) {
             if ($value === '' || $value === null) {
                 continue;
             }
+            $uri = $this->termToUri($remoteProp);
+            if ($uri === $creatorUri) {
+                $metas[] = [
+                    'propertyUri' => $creatorUri,
+                    'value' => $this->buildCreatorValue((string) $value),
+                ];
+                continue;
+            }
+            if ($uri === $typeUri) {
+                $metas[] = [
+                    'propertyUri' => $typeUri,
+                    'value' => (string) $value,
+                    'typeUri' => 'http://www.w3.org/2001/XMLSchema#anyURI',
+                ];
+                continue;
+            }
+            if ($uri === $createdUri || $uri === $licenseUri) {
+                $metas[] = [
+                    'propertyUri' => $uri,
+                    'value' => (string) $value,
+                    'typeUri' => 'http://www.w3.org/2001/XMLSchema#string',
+                ];
+                continue;
+            }
             $metas[] = [
-                'propertyUri' => $this->termToUri($remoteProp),
+                'propertyUri' => $uri,
                 'value' => $value,
                 'lang' => 'fr',
                 'typeUri' => 'http://www.w3.org/2001/XMLSchema#string',
             ];
         }
 
-        // Ensure mandatory fields.
-        $this->ensureMeta($metas, 'http://purl.org/dc/terms/title',
+        // Ensure Nakala mandatory fields (nakala.fr/terms#).
+        $this->ensureMeta($metas, 'http://nakala.fr/terms#title',
             (string) ($item->displayTitle() ?: $media->displayTitle()
                 ?: $media->source() ?: 'Untitled'));
-        $this->ensureMeta($metas, 'http://purl.org/dc/terms/type',
+        $this->ensureMetaCreator($metas, $item);
+        $this->ensureMeta($metas, 'http://nakala.fr/terms#type',
             'http://purl.org/coar/resource_type/c_c513',
             'http://www.w3.org/2001/XMLSchema#anyURI');
-        $this->ensureMeta($metas, 'http://purl.org/dc/terms/created',
+        $this->ensureMeta($metas, 'http://nakala.fr/terms#created',
             date('Y'));
-        $this->ensureMeta($metas, 'http://purl.org/dc/terms/license',
-            'CC BY 4.0');
+        $this->ensureMeta($metas, 'http://nakala.fr/terms#license',
+            'CC-BY-4.0');
 
         return $metas;
     }
@@ -374,11 +567,66 @@ class NakalaConnector implements RepositoryConnectorInterface
     }
 
     /**
+     * Ensure the Nakala creator meta is present. The creator
+     * must be an object with givenname/surname/orcid, not a
+     * string.
+     */
+    protected function ensureMetaCreator(
+        array &$metas,
+        ItemRepresentation $item
+    ): void {
+        $uri = 'http://nakala.fr/terms#creator';
+        foreach ($metas as $meta) {
+            if (($meta['propertyUri'] ?? '') === $uri) {
+                return;
+            }
+        }
+        $creator = $item->value('dcterms:creator');
+        $creatorValue = $creator ? (string) $creator : '';
+        $metas[] = [
+            'propertyUri' => $uri,
+            'value' => $this->buildCreatorValue($creatorValue),
+        ];
+    }
+
+    /**
+     * Parse "Surname, Givenname" or "Givenname Surname" into
+     * the Nakala creator object format.
+     */
+    protected function buildCreatorValue(string $value): array
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return [
+                'givenname' => '',
+                'surname' => null,
+                'orcid' => null,
+            ];
+        }
+        if (strpos($value, ',') !== false) {
+            [$surname, $givenname] = array_map(
+                'trim',
+                explode(',', $value, 2)
+            );
+        } else {
+            $parts = preg_split('/\s+/', $value, 2);
+            $givenname = $parts[0] ?? '';
+            $surname = $parts[1] ?? '';
+        }
+        return [
+            'givenname' => $givenname,
+            'surname' => $surname,
+            'orcid' => null,
+        ];
+    }
+
+    /**
      * Convert a property term to a full URI.
      */
     protected function termToUri(string $term): string
     {
         static $prefixes = [
+            'nakala' => 'http://nakala.fr/terms#',
             'dcterms' => 'http://purl.org/dc/terms/',
             'dc' => 'http://purl.org/dc/elements/1.1/',
             'foaf' => 'http://xmlns.com/foaf/0.1/',
@@ -392,17 +640,63 @@ class NakalaConnector implements RepositoryConnectorInterface
     }
 
     /**
+     * Check that all Nakala mandatory metadata are present
+     * and return the list of missing ones.
+     */
+    protected function checkMandatoryMetas(array $metas): array
+    {
+        $mandatory = [
+            'http://nakala.fr/terms#title',
+            'http://nakala.fr/terms#creator',
+            'http://nakala.fr/terms#type',
+            'http://nakala.fr/terms#created',
+            'http://nakala.fr/terms#license',
+        ];
+        $present = array_column($metas, 'propertyUri');
+        return array_values(array_diff($mandatory, $present));
+    }
+
+    /**
      * Extract error message from API response body.
      */
     protected function extractErrorMessage(string $body): string
     {
         $json = json_decode($body, true);
-        if ($json) {
-            return $json['message']
-                ?? $json['error']
-                ?? $json['detail']
-                ?? json_encode($json['errors'] ?? $json, JSON_UNESCAPED_UNICODE);
+        if (!$json) {
+            return substr($body, 0, 500);
         }
-        return substr($body, 0, 300);
+        $parts = [];
+        if (!empty($json['message'])) {
+            $parts[] = $json['message'];
+        }
+        if (!empty($json['error'])) {
+            $parts[] = is_string($json['error'])
+                ? $json['error']
+                : json_encode($json['error'], JSON_UNESCAPED_UNICODE);
+        }
+        if (!empty($json['detail'])) {
+            $parts[] = is_string($json['detail'])
+                ? $json['detail']
+                : json_encode($json['detail'], JSON_UNESCAPED_UNICODE);
+        }
+        if (!empty($json['errors'])) {
+            $parts[] = 'errors: ' . json_encode(
+                $json['errors'],
+                JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+            );
+        }
+        if (!empty($json['payload'])) {
+            $parts[] = 'payload: ' . json_encode(
+                $json['payload'],
+                JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+            );
+        }
+        if (!$parts) {
+            return substr(json_encode(
+                $json,
+                JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+            ), 0, 500);
+        }
+        return implode(' | ', $parts);
     }
 }

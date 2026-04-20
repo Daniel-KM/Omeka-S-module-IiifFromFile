@@ -5,6 +5,7 @@ namespace IiifFromFile\Controller;
 use Common\Stdlib\PsrMessage;
 use IiifFromFile\Form\ExportForm;
 use IiifFromFile\Job\ExportToRepository;
+use IiifFromFile\Job\SyncToRepository;
 use Laminas\Mvc\Controller\AbstractActionController;
 use Laminas\View\Model\ViewModel;
 
@@ -64,8 +65,13 @@ class AdminController extends AbstractActionController
             'api_key' => $data['api_key'] ?? '',
         ];
 
+        $action = $data['action'] ?? 'export';
+        $jobClass = $action === 'sync'
+            ? SyncToRepository::class
+            : ExportToRepository::class;
+
         $dispatcher = $services->get(\Omeka\Job\Dispatcher::class);
-        $job = $dispatcher->dispatch(ExportToRepository::class, $params);
+        $job = $dispatcher->dispatch($jobClass, $params);
 
         $urlPlugin = $this->url();
         $message = new PsrMessage(

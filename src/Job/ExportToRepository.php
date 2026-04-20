@@ -58,6 +58,7 @@ class ExportToRepository extends AbstractJob
             );
             return;
         }
+
         $this->logger->info(
             'Connected to {label}: {message}', // @translate
             [
@@ -73,7 +74,6 @@ class ExportToRepository extends AbstractJob
         $query = $args['query'] ?? [];
 
         // Fetch items.
-        $query['limit'] = 0;
         $items = $this->api->search('items', $query)->getContent();
 
         $this->logger->info(
@@ -173,19 +173,21 @@ class ExportToRepository extends AbstractJob
         $iiifInfoUrl = $connector->buildIiifInfoUrl($dataResult);
         $remoteId = $dataResult['identifier'] ?? '';
         $doi = $dataResult['doi'] ?? '';
+        $dataUri = $dataResult['data_uri'] ?? '';
 
         $this->logger->info(
-            'Media #{media_id}: exported as {identifier} (DOI: {doi}).', // @translate
+            'Media #{media_id}: exported as {identifier} (DOI: {doi}, URL: {url}).', // @translate
             [
                 'media_id' => $media->id(),
                 'identifier' => $remoteId,
                 'doi' => $doi ?: '(none)',
+                'url' => $dataUri ?: '(none)',
             ]
         );
 
         // Step 5: Update Omeka media.
         $this->updateMedia(
-            $media, $iiifInfoUrl, $remoteId, $doi,
+            $media, $iiifInfoUrl, $remoteId, $doi, $dataUri,
             $propertyIdentifier, $propertyUrl
         );
 
@@ -195,10 +197,11 @@ class ExportToRepository extends AbstractJob
     protected function getLocalFilePath(MediaRepresentation $media): ?string
     {
         $config = $this->getServiceLocator()->get('Config');
-        $basePath = $config['file_store']['local']['base_path']
-            ?: (OMEKA_PATH . '/files');
+        $basePath = $config['file_store']['local']['base_path'] ?: (OMEKA_PATH . '/files');
         $filename = $media->filename();
-        return $filename ? $basePath . '/original/' . $filename : null;
+        return $filename
+            ? $basePath . '/original/' . $filename
+            : null;
     }
 
     /**
@@ -245,41 +248,112 @@ class ExportToRepository extends AbstractJob
         string $iiifInfoUrl,
         string $remoteId,
         string $doi,
+        string $dataUri,
         string $propertyIdentifier,
         string $propertyUrl
     ): void {
+        // Step 1: Update properties via the API (safe partial update).
         $data = [];
-        if ($propertyIdentifier && ($doi || $remoteId)) {
+        // Prefer the short identifier form (10.34847/nkl.xxx)
+        // for the identifier property, and the full URI form
+        // (https://doi.org/...) for the URL property.
+        $identifierValue = $remoteId ?: $doi;
+        if ($propertyIdentifier && $identifierValue) {
             $propId = $this->getPropertyId($propertyIdentifier);
             if ($propId) {
                 $data[$propertyIdentifier][] = [
                     'type' => 'literal',
                     'property_id' => $propId,
-                    '@value' => $doi ?: $remoteId,
+                    '@value' => $identifierValue,
                 ];
             }
         }
-        if ($propertyUrl && $iiifInfoUrl) {
+        $urlValue = $dataUri ?: $iiifInfoUrl;
+        if ($propertyUrl && $urlValue) {
             $propId = $this->getPropertyId($propertyUrl);
             if ($propId) {
                 $data[$propertyUrl][] = [
                     'type' => 'uri',
                     'property_id' => $propId,
-                    '@id' => $iiifInfoUrl,
-                    'o:label' => 'IIIF',
+                    '@id' => $urlValue,
+                    'o:label' => $dataUri ? 'Nakala' : 'IIIF',
                 ];
             }
         }
-        $data['o:ingester'] = 'iiif';
-        $data['o:source'] = $iiifInfoUrl;
-        $data['ingest_url'] = $iiifInfoUrl;
+        if ($data) {
+            try {
+                $this->api->update('media', $media->id(), $data,
+                    [], ['isPartial' => true, 'collectionAction' => 'append']);
+            } catch (\Throwable $e) {
+                $this->logger->err(
+                    'Media #{media_id}: property update failed: {error}', // @translate
+                    ['media_id' => $media->id(), 'error' => $e->getMessage()]
+                );
+            }
+        }
+
+        // Step 2: Convert media to IIIF ingester/renderer via direct
+        // entity manipulation. MediaAdapter::hydrate() only sets
+        // ingester/renderer/source/data on CREATE, so an API update
+        // cannot change them — use the EntityManager instead.
+        if (!$iiifInfoUrl) {
+            return;
+        }
         try {
-            $this->api->update('media', $media->id(), $data, [], ['isPartial' => true]);
+            $services = $this->getServiceLocator();
+            $entityManager = $services->get('Omeka\EntityManager');
+            /** @var \Omeka\Entity\Media $mediaEntity */
+            $mediaEntity = $entityManager->find(
+                \Omeka\Entity\Media::class, $media->id()
+            );
+            if (!$mediaEntity) {
+                return;
+            }
+            $infoData = $this->fetchIiifInfo($iiifInfoUrl);
+            if ($infoData === null) {
+                $this->logger->warn(
+                    'Media #{media_id}: cannot fetch IIIF info.json at {url}, skipping ingester conversion.', // @translate
+                    ['media_id' => $media->id(), 'url' => $iiifInfoUrl]
+                );
+                return;
+            }
+            $mediaEntity->setIngester('iiif');
+            $mediaEntity->setRenderer('iiif');
+            $mediaEntity->setSource($iiifInfoUrl);
+            $mediaEntity->setData($infoData);
+            $entityManager->flush();
+            $this->logger->info(
+                'Media #{media_id}: converted to IIIF ingester (source={url}).', // @translate
+                ['media_id' => $media->id(), 'url' => $iiifInfoUrl]
+            );
         } catch (\Throwable $e) {
             $this->logger->err(
-                'Media #{media_id}: update failed: {error}', // @translate
+                'Media #{media_id}: ingester conversion failed: {error}', // @translate
                 ['media_id' => $media->id(), 'error' => $e->getMessage()]
             );
+        }
+    }
+
+    /**
+     * Fetch a IIIF info.json resource.
+     */
+    protected function fetchIiifInfo(string $url): ?array
+    {
+        try {
+            $services = $this->getServiceLocator();
+            $client = $services->get('Omeka\HttpClient');
+            $client->reset();
+            $client->setUri($url);
+            $client->setMethod('GET');
+            $client->setHeaders(['Accept' => 'application/json']);
+            $response = $client->send();
+            if (!$response->isSuccess()) {
+                return null;
+            }
+            $data = json_decode($response->getBody(), true);
+            return is_array($data) ? $data : null;
+        } catch (\Throwable $e) {
+            return null;
         }
     }
 

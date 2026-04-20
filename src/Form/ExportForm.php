@@ -65,11 +65,12 @@ class ExportForm extends Form
                         Map local properties to remote metadata. One mapping per line.
                         Format: remote_property = local_source
                         The local source can be a property (dcterms:title), a prefixed item property (o:item/dcterms:title), or a fixed value in quotes.
+                        Nakala mandatory metadata (nakala:title, nakala:creator, nakala:type, nakala:created, nakala:license) are added automatically with defaults if not mapped.
                         Examples:
-                        dcterms:title = o:item/dcterms:title
-                        dcterms:creator = "Institution Name"
-                        dcterms:type = o:item/dcterms:type
-                        dcterms:licence = "CC-BY-SA-4.0"
+                        nakala:title = o:item/dcterms:title
+                        nakala:creator = o:item/dcterms:creator
+                        nakala:license = "CC-BY-4.0"
+                        dcterms:description = o:item/dcterms:description
                         TXT, // @translate
                 ],
                 'attributes' => [
@@ -136,11 +137,26 @@ class ExportForm extends Form
                 ],
             ])
             ->add([
+                'name' => 'action',
+                'type' => Element\Radio::class,
+                'options' => [
+                    'label' => 'Action', // @translate
+                    'value_options' => [
+                        'export' => 'Export new files to repository', // @translate
+                        'sync' => 'Sync metadata of already exported files', // @translate
+                    ],
+                ],
+                'attributes' => [
+                    'id' => 'action',
+                    'value' => 'export',
+                ],
+            ])
+            ->add([
                 'name' => 'submit',
                 'type' => Element\Submit::class,
                 'attributes' => [
                     'id' => 'submit',
-                    'value' => 'Export', // @translate
+                    'value' => 'Run', // @translate
                 ],
             ])
         ;

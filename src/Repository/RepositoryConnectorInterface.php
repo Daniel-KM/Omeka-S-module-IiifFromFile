@@ -64,6 +64,39 @@ interface RepositoryConnectorInterface
     ): ?array;
 
     /**
+     * Update metadata of an existing data object.
+     *
+     * @param string $identifier Remote identifier.
+     * @param array $metadata Updated metadata (key-value pairs).
+     * @return bool Success.
+     */
+    public function updateData(
+        string $identifier,
+        array $metadata
+    ): bool;
+
+    /**
+     * Update the status of an existing data object.
+     *
+     * @param string $identifier Remote identifier.
+     * @param string $status New status (e.g. 'published', 'pending').
+     * @return bool Success.
+     */
+    public function updateStatus(
+        string $identifier,
+        string $status
+    ): bool;
+
+    /**
+     * Fetch current metadata from the remote repository.
+     *
+     * @param string $identifier Remote identifier.
+     * @return array|null Metadata as key-value pairs, or null on
+     * failure.
+     */
+    public function fetchData(string $identifier): ?array;
+
+    /**
      * Build the IIIF image info.json URL from the creation result.
      */
     public function buildIiifInfoUrl(array $dataResult): string;
