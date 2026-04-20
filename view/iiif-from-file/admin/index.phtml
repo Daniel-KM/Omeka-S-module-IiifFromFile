@@ -1,0 +1,30 @@
+<?php
+/**
+ * @var \Laminas\View\Renderer\PhpRenderer $this
+ * @var \IiifFromFile\Form\ExportForm $form
+ */
+
+$translate = $this->plugin('translate');
+$this->htmlElement('body')->appendAttribute('class', 'iiif-from-file');
+$form->prepare();
+?>
+
+<?= $this->pageTitle($translate('IIIF from File')) ?>
+
+<p>
+    <?= $translate('Export local image files to a remote IIIF-compatible repository. The local files will be replaced by IIIF image references.') // @translate ?>
+</p>
+
+<?= $this->form()->openTag($form) ?>
+
+<div id="page-actions">
+    <?= $this->formElement($form->get('submit')) ?>
+</div>
+
+<?php foreach ($form as $element):
+    $name = $element->getName();
+    if ($name === 'submit') continue;
+    echo $this->formRow($element);
+endforeach; ?>
+
+<?= $this->form()->closeTag() ?>
