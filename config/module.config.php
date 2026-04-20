@@ -57,15 +57,23 @@ return [
             ],
         ],
     ],
+    'service_manager' => [
+        'factories' => [
+            Repository\NakalaConnector::class => Service\Repository\NakalaConnectorFactory::class,
+        ],
+    ],
     'iiiffromfile' => [
+        // Each endpoint references a connector service.
         'endpoints' => [
             'nakala' => [
                 'label' => 'Nakala (production)',
+                'connector' => Repository\NakalaConnector::class,
                 'api_url' => 'https://api.nakala.fr/',
                 'base_url' => 'https://nakala.fr/',
             ],
             'nakala_test' => [
                 'label' => 'Nakala (test)',
+                'connector' => Repository\NakalaConnector::class,
                 'api_url' => 'https://apitest.nakala.fr/',
                 'base_url' => 'https://test.nakala.fr/',
             ],
