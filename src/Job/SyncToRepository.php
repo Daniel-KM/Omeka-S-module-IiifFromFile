@@ -78,6 +78,12 @@ class SyncToRepository extends AbstractJob
             ['label' => $connector->getLabel()]
         );
 
+        // Use IiifServer plugin if installed, else fallback.
+        $plugins = $services->get('ControllerPluginManager');
+        $isIiifMedia = $plugins->has('isIiifMedia')
+            ? $plugins->get('isIiifMedia')
+            : fn ($media, $type = null) => $media->ingester() === 'iiif';
+
         // Fetch items.
         $query['limit'] = 0;
         $items = $this->api->search('items', $query)->getContent();
@@ -89,9 +95,9 @@ class SyncToRepository extends AbstractJob
             }
 
             foreach ($item->media() as $media) {
-                // Only sync media that were exported (IIIF ingester
-                // with a remote identifier stored).
-                if ($media->ingester() !== 'iiif') {
+                // Only sync media that were exported (IIIF ingester with a
+                // remote identifier stored).
+                if (!$isIiifMedia($media, 'image')) {
                     continue;
                 }
 

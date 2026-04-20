@@ -77,6 +77,12 @@ class ExportToRepository extends AbstractJob
         }
         $query = $args['query'] ?? [];
 
+        // Use IiifServer plugin if installed, else fallback.
+        $plugins = $services->get('ControllerPluginManager');
+        $isIiifMedia = $plugins->has('isIiifMedia')
+            ? $plugins->get('isIiifMedia')
+            : fn ($media, $type = null) => $media->ingester() === 'iiif';
+
         // Fetch items.
         $items = $this->api->search('items', $query)->getContent();
 
@@ -98,7 +104,7 @@ class ExportToRepository extends AbstractJob
                 if ($mainType !== 'image') {
                     continue;
                 }
-                if ($media->ingester() === 'iiif') {
+                if ($isIiifMedia($media, 'image')) {
                     ++$this->totalSkipped;
                     continue;
                 }
