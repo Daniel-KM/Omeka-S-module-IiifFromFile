@@ -71,6 +71,10 @@ class ExportToRepository extends AbstractJob
         $metadataMapping = $args['metadata_mapping'] ?? [];
         $propertyIdentifier = $args['property_identifier'] ?? '';
         $propertyUrl = $args['property_url'] ?? '';
+        $mediaMode = $args['media_mode'] ?? 'convert_delete_original';
+        if (!in_array($mediaMode, ['convert', 'convert_delete_original', 'convert_delete', 'add'], true)) {
+            $mediaMode = 'convert_delete_original';
+        }
         $query = $args['query'] ?? [];
 
         // Fetch items.
@@ -104,7 +108,7 @@ class ExportToRepository extends AbstractJob
                 $success = $this->exportMedia(
                     $connector, $media, $item,
                     $collectionParams, $metadataMapping,
-                    $propertyIdentifier, $propertyUrl
+                    $propertyIdentifier, $propertyUrl, $mediaMode
                 );
 
                 if ($success) {
@@ -133,7 +137,8 @@ class ExportToRepository extends AbstractJob
         array $collectionParams,
         array $metadataMapping,
         string $propertyIdentifier,
-        string $propertyUrl
+        string $propertyUrl,
+        string $mediaMode
     ): bool {
         $filePath = $this->getLocalFilePath($media);
         if (!$filePath || !file_exists($filePath)) {
@@ -187,8 +192,8 @@ class ExportToRepository extends AbstractJob
 
         // Step 5: Update Omeka media.
         $this->updateMedia(
-            $media, $iiifInfoUrl, $remoteId, $doi, $dataUri,
-            $propertyIdentifier, $propertyUrl
+            $media, $item, $iiifInfoUrl, $remoteId, $doi, $dataUri,
+            $propertyIdentifier, $propertyUrl, $mediaMode
         );
 
         return true;
@@ -245,6 +250,100 @@ class ExportToRepository extends AbstractJob
 
     protected function updateMedia(
         MediaRepresentation $media,
+        $item,
+        string $iiifInfoUrl,
+        string $remoteId,
+        string $doi,
+        string $dataUri,
+        string $propertyIdentifier,
+        string $propertyUrl,
+        string $mediaMode
+    ): void {
+        // Mode "add": create a brand new IIIF media attached to
+        // the same item, keeping the original upload media intact.
+        if ($mediaMode === 'add') {
+            $this->addIiifMedia(
+                $media, $item, $iiifInfoUrl, $remoteId, $doi, $dataUri,
+                $propertyIdentifier, $propertyUrl
+            );
+            return;
+        }
+
+        // Step 1: Update properties on the existing media via the API
+        // (safe partial update).
+        $this->appendMediaProperties(
+            $media->id(), $iiifInfoUrl, $remoteId, $doi, $dataUri,
+            $propertyIdentifier, $propertyUrl
+        );
+
+        // Step 2: Convert media to IIIF ingester/renderer via direct
+        // entity manipulation. MediaAdapter::hydrate() only sets
+        // ingester/renderer/source/data on CREATE, so an API update
+        // cannot change them — use the EntityManager instead.
+        if (!$iiifInfoUrl) {
+            return;
+        }
+        $infoData = $this->fetchIiifInfo($iiifInfoUrl);
+        if ($infoData === null) {
+            $this->logger->warn(new PsrMessage(
+                'Media #{media_id}: cannot fetch IIIF info.json at {url}, skipping ingester conversion.', // @translate
+                ['media_id' => $media->id(), 'url' => $iiifInfoUrl]
+            ));
+            return;
+        }
+        try {
+            $services = $this->getServiceLocator();
+            $entityManager = $services->get('Omeka\EntityManager');
+            /** @var \Omeka\Entity\Media $mediaEntity */
+            $mediaEntity = $entityManager->find(
+                \Omeka\Entity\Media::class, $media->id()
+            );
+            if (!$mediaEntity) {
+                return;
+            }
+            $storageId = $mediaEntity->getStorageId();
+            $extension = $mediaEntity->getExtension();
+            $hasThumbnails = $mediaEntity->hasThumbnails();
+            $mediaEntity->setIngester('iiif');
+            $mediaEntity->setRenderer('iiif');
+            $mediaEntity->setSource($iiifInfoUrl);
+            $mediaEntity->setData($infoData);
+            if ($mediaMode === 'convert_delete') {
+                $mediaEntity->setStorageId(null);
+                $mediaEntity->setExtension(null);
+                $mediaEntity->setHasThumbnails(false);
+                $mediaEntity->setHasOriginal(false);
+            } elseif ($mediaMode === 'convert_delete_original') {
+                $mediaEntity->setExtension(null);
+                $mediaEntity->setHasOriginal(false);
+            }
+            $entityManager->flush();
+            $this->logger->info(new PsrMessage(
+                'Media #{media_id}: converted to IIIF ingester (source={url}).', // @translate
+                ['media_id' => $media->id(), 'url' => $iiifInfoUrl]
+            ));
+            if ($mediaMode === 'convert_delete' && $storageId) {
+                $this->deleteLocalFiles(
+                    $media->id(), $storageId, $extension, $hasThumbnails
+                );
+            } elseif ($mediaMode === 'convert_delete_original' && $storageId) {
+                $this->deleteLocalFiles(
+                    $media->id(), $storageId, $extension, false
+                );
+            }
+        } catch (\Throwable $e) {
+            $this->logger->err(new PsrMessage(
+                'Media #{media_id}: ingester conversion failed: {error}', // @translate
+                ['media_id' => $media->id(), 'error' => $e->getMessage()]
+            ));
+        }
+    }
+
+    /**
+     * Append the identifier/URL properties to an existing media.
+     */
+    protected function appendMediaProperties(
+        int $mediaId,
         string $iiifInfoUrl,
         string $remoteId,
         string $doi,
@@ -252,7 +351,6 @@ class ExportToRepository extends AbstractJob
         string $propertyIdentifier,
         string $propertyUrl
     ): void {
-        // Step 1: Update properties via the API (safe partial update).
         $data = [];
         // Prefer the short identifier form (10.34847/nkl.xxx)
         // for the identifier property, and the full URI form
@@ -280,57 +378,128 @@ class ExportToRepository extends AbstractJob
                 ];
             }
         }
-        if ($data) {
-            try {
-                $this->api->update('media', $media->id(), $data,
-                    [], ['isPartial' => true, 'collectionAction' => 'append']);
-            } catch (\Throwable $e) {
-                $this->logger->err(
-                    'Media #{media_id}: property update failed: {error}', // @translate
-                    ['media_id' => $media->id(), 'error' => $e->getMessage()]
-                );
-            }
-        }
-
-        // Step 2: Convert media to IIIF ingester/renderer via direct
-        // entity manipulation. MediaAdapter::hydrate() only sets
-        // ingester/renderer/source/data on CREATE, so an API update
-        // cannot change them — use the EntityManager instead.
-        if (!$iiifInfoUrl) {
+        if (!$data) {
             return;
         }
         try {
-            $services = $this->getServiceLocator();
-            $entityManager = $services->get('Omeka\EntityManager');
-            /** @var \Omeka\Entity\Media $mediaEntity */
-            $mediaEntity = $entityManager->find(
-                \Omeka\Entity\Media::class, $media->id()
+            $this->api->update('media', $mediaId, $data, [],
+                ['isPartial' => true, 'collectionAction' => 'append']);
+        } catch (\Throwable $e) {
+            $this->logger->err(
+                'Media #{media_id}: property update failed: {error}', // @translate
+                ['media_id' => $mediaId, 'error' => $e->getMessage()]
             );
-            if (!$mediaEntity) {
-                return;
+        }
+    }
+
+    /**
+     * Create a new IIIF media attached to the given item.
+     */
+    protected function addIiifMedia(
+        MediaRepresentation $media,
+        $item,
+        string $iiifInfoUrl,
+        string $remoteId,
+        string $doi,
+        string $dataUri,
+        string $propertyIdentifier,
+        string $propertyUrl
+    ): void {
+        if (!$iiifInfoUrl) {
+            return;
+        }
+        $data = [
+            'o:ingester' => 'iiif',
+            'o:source' => $iiifInfoUrl,
+            'ingest_url' => $iiifInfoUrl,
+            'o:item' => ['o:id' => $item->id()],
+        ];
+        $identifierValue = $remoteId ?: $doi;
+        if ($propertyIdentifier && $identifierValue) {
+            $propId = $this->getPropertyId($propertyIdentifier);
+            if ($propId) {
+                $data[$propertyIdentifier][] = [
+                    'type' => 'literal',
+                    'property_id' => $propId,
+                    '@value' => $identifierValue,
+                ];
             }
-            $infoData = $this->fetchIiifInfo($iiifInfoUrl);
-            if ($infoData === null) {
-                $this->logger->warn(
-                    'Media #{media_id}: cannot fetch IIIF info.json at {url}, skipping ingester conversion.', // @translate
-                    ['media_id' => $media->id(), 'url' => $iiifInfoUrl]
-                );
-                return;
+        }
+        $urlValue = $dataUri ?: $iiifInfoUrl;
+        if ($propertyUrl && $urlValue) {
+            $propId = $this->getPropertyId($propertyUrl);
+            if ($propId) {
+                $data[$propertyUrl][] = [
+                    'type' => 'uri',
+                    'property_id' => $propId,
+                    '@id' => $urlValue,
+                    'o:label' => $dataUri ? 'Nakala' : 'IIIF',
+                ];
             }
-            $mediaEntity->setIngester('iiif');
-            $mediaEntity->setRenderer('iiif');
-            $mediaEntity->setSource($iiifInfoUrl);
-            $mediaEntity->setData($infoData);
-            $entityManager->flush();
+        }
+        try {
+            $response = $this->api->create('media', $data);
+            $newMedia = $response->getContent();
             $this->logger->info(
-                'Media #{media_id}: converted to IIIF ingester (source={url}).', // @translate
-                ['media_id' => $media->id(), 'url' => $iiifInfoUrl]
+                'Media #{media_id}: new IIIF media #{new_id} added to item #{item_id}.', // @translate
+                [
+                    'media_id' => $media->id(),
+                    'new_id' => $newMedia->id(),
+                    'item_id' => $item->id(),
+                ]
             );
         } catch (\Throwable $e) {
             $this->logger->err(
-                'Media #{media_id}: ingester conversion failed: {error}', // @translate
+                'Media #{media_id}: add IIIF media failed: {error}', // @translate
                 ['media_id' => $media->id(), 'error' => $e->getMessage()]
             );
+        }
+    }
+
+    /**
+     * Delete the original file and its thumbnails from local storage.
+     */
+    protected function deleteLocalFiles(
+        int $mediaId,
+        string $storageId,
+        ?string $extension,
+        bool $hasThumbnails
+    ): void {
+        $services = $this->getServiceLocator();
+        /** @var \Omeka\File\Store\StoreInterface $store */
+        $store = $services->get('Omeka\File\Store');
+        $deleted = [];
+        $errors = [];
+        $originalPath = 'original/' . $storageId
+            . ($extension ? '.' . $extension : '');
+        try {
+            $store->delete($originalPath);
+            $deleted[] = 'original';
+        } catch (\Throwable $e) {
+            $errors[] = 'original: ' . $e->getMessage();
+        }
+        if ($hasThumbnails) {
+            foreach (['large', 'medium', 'square'] as $type) {
+                $path = $type . '/' . $storageId . '.jpg';
+                try {
+                    $store->delete($path);
+                    $deleted[] = $type;
+                } catch (\Throwable $e) {
+                    $errors[] = $type . ': ' . $e->getMessage();
+                }
+            }
+        }
+        if ($deleted) {
+            $this->logger->info(new PsrMessage(
+                'Media #{media_id}: local files deleted ({types}).', // @translate
+                ['media_id' => $mediaId, 'types' => implode(', ', $deleted)]
+            ));
+        }
+        if ($errors) {
+            $this->logger->warn(new PsrMessage(
+                'Media #{media_id}: some local files could not be deleted: {errors}.', // @translate
+                ['media_id' => $mediaId, 'errors' => implode(' | ', $errors)]
+            ));
         }
     }
 

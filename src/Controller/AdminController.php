@@ -63,6 +63,7 @@ class AdminController extends AbstractActionController
             'property_url' => $data['property_url'] ?? '',
             'api_user' => $data['api_user'] ?? '',
             'api_key' => $data['api_key'] ?? '',
+            'media_mode' => $data['media_mode'] ?? 'convert',
         ];
 
         $action = $data['action'] ?? 'export';

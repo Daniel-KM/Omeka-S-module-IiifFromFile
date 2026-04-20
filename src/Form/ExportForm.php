@@ -152,6 +152,27 @@ class ExportForm extends Form
                 ],
             ])
             ->add([
+                'name' => 'media_mode',
+                'type' => Element\Radio::class,
+                'options' => [
+                    'label' => 'Media handling after deposit', // @translate
+                    'label_attributes' => [
+                        'style' => 'display: inline-block;',
+                    ],
+                    'info' => 'How to update the Omeka media once the file is deposited on the remote repository.', // @translate
+                    'value_options' => [
+                        'add' => 'Add a new IIIF media to the item and keep original media', // @translate
+                        'convert_delete_original' => 'Convert media to IIIF and delete the original file', // @translate
+                        'convert_delete' => 'Convert media to IIIF and delete original and derivative files', // @translate
+                        'convert' => 'Convert media to IIIF and keep original and derivatives files (use Easy Admin to delete or restore them)', // @translate
+                    ],
+                ],
+                'attributes' => [
+                    'id' => 'media_mode',
+                    'value' => 'add',
+                ],
+            ])
+            ->add([
                 'name' => 'submit',
                 'type' => Element\Submit::class,
                 'attributes' => [
