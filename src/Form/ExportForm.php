@@ -29,7 +29,7 @@ class ExportForm extends Form
                 'type' => OmekaElement\ArrayTextarea::class,
                 'options' => [
                     'label' => 'Collection / deposit parameters', // @translate
-                    'info' => 'Parameters for the remote collection or deposit. For Nakala, set the collection identifier. One key=value per line.', // @translate
+                    'info' => 'Parameters for the remote collection or deposit, one key=value per line. "collection_id" is the parent container on the remote: a Nakala collection identifier (e.g. 10.34847/nkl.xxxx) for Nakala, or a parent dataverse alias for Dataverse (the account must have Dataset Creator rights on it). "status" is "pending" or "published".', // @translate
                     'as_key_value' => true,
                 ],
                 'attributes' => [

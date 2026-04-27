@@ -560,7 +560,14 @@ class NakalaConnector implements RepositoryConnectorInterface
             'value' => $value,
             'typeUri' => $typeUri,
         ];
-        if ($typeUri === 'http://www.w3.org/2001/XMLSchema#string') {
+        // Nakala forbids the lang attribute on created/license fields.
+        $noLang = [
+            'http://nakala.fr/terms#created',
+            'http://nakala.fr/terms#license',
+        ];
+        if ($typeUri === 'http://www.w3.org/2001/XMLSchema#string'
+            && !in_array($uri, $noLang, true)
+        ) {
             $meta['lang'] = 'fr';
         }
         $metas[] = $meta;

@@ -60,11 +60,30 @@ return [
     'service_manager' => [
         'factories' => [
             Repository\NakalaConnector::class => Service\Repository\NakalaConnectorFactory::class,
+            Repository\DataverseConnector::class => Service\Repository\DataverseConnectorFactory::class,
         ],
     ],
     'iiiffromfile' => [
         // Each endpoint references a connector service.
         'endpoints' => [
+            'dataverse_demo' => [
+                'label' => 'Dataverse (demo, test)',
+                'connector' => Repository\DataverseConnector::class,
+                'api_url' => 'https://demo.dataverse.org',
+                'base_url' => 'https://demo.dataverse.org',
+            ],
+            'dataverse_recherche' => [
+                'label' => 'Recherche Data Gouv (CNRS)',
+                'connector' => Repository\DataverseConnector::class,
+                'api_url' => 'https://entrepot.recherche.data.gouv.fr',
+                'base_url' => 'https://entrepot.recherche.data.gouv.fr',
+            ],
+            'dataverse_indores' => [
+                'label' => 'Data IndoRES',
+                'connector' => Repository\DataverseConnector::class,
+                'api_url' => 'https://data.indores.fr',
+                'base_url' => 'https://data.indores.fr',
+            ],
             'nakala' => [
                 'label' => 'Nakala (production)',
                 'connector' => Repository\NakalaConnector::class,
