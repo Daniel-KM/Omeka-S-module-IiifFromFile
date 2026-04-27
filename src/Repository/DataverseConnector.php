@@ -264,7 +264,13 @@ class DataverseConnector implements RepositoryConnectorInterface
         return $this->apiUrl . '/api/access/datafile/' . rawurlencode($fileId);
     }
 
-    public function updateData(string $identifier, array $metadata): bool
+    public function updateData(
+        string $identifier,
+        array $metadata,
+        ?MediaRepresentation $media = null,
+        ?ItemRepresentation $item = null,
+        string $mode = 'replace'
+    ): bool
     {
         $this->lastError = '';
         $url = $this->apiUrl . '/api/datasets/:persistentId/editMetadata'

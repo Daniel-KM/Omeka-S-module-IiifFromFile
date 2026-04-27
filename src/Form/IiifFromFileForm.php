@@ -191,6 +191,7 @@ class IiifFromFileForm extends Form
                     'value' => 'auto',
                 ],
             ])
+
             ->add([
                 'name' => 'action',
                 'type' => Element\Radio::class,
@@ -206,6 +207,42 @@ class IiifFromFileForm extends Form
                     'value' => 'export',
                 ],
             ])
+            ->add([
+                'name' => 'sync_mode',
+                'type' => Element\Radio::class,
+                'options' => [
+                    'label' => 'Sync mode', // @translate
+                    'label_attributes' => [
+                        'style' => 'display: inline-block;',
+                    ],
+                    'value_options' => [
+                        'complete' => 'Complete record (only add metadata missing on remote)', // @translate
+                        'overwrite' => 'Overwrite mapped metadata (keep unmapped remote metadata)', // @translate
+                        'replace' => 'Replace record entirely (discard unmapped remote metadata)', // @translate
+                    ],
+                ],
+                'attributes' => [
+                    'id' => 'sync_mode',
+                    'value' => 'overwrite',
+                ],
+            ])
+            ->add([
+                'name' => 'sync_status',
+                'type' => Element\Select::class,
+                'options' => [
+                    'label' => 'Status to set on sync', // @translate
+                    'info' => 'When syncing, optionally update the remote status. Nakala: pending/published; Dataverse: published.', // @translate
+                    'empty_option' => 'Do not change status', // @translate
+                    'value_options' => [
+                        'pending' => 'Pending', // @translate
+                        'published' => 'Published', // @translate
+                    ],
+                ],
+                'attributes' => [
+                    'id' => 'sync_status',
+                ],
+            ])
+
             ->add([
                 'name' => 'submit',
                 'type' => Element\Submit::class,

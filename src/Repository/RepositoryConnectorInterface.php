@@ -70,9 +70,17 @@ interface RepositoryConnectorInterface
      * @param array $metadata Updated metadata (key-value pairs).
      * @return bool Success.
      */
+    /**
+     * @param string $mode 'replace' (discard unmapped remote metadata),
+     * 'overwrite' (keep unmapped remote metadata) or 'complete' (only add
+     * metadata missing on remote).
+     */
     public function updateData(
         string $identifier,
-        array $metadata
+        array $metadata,
+        ?MediaRepresentation $media = null,
+        ?ItemRepresentation $item = null,
+        string $mode = 'replace'
     ): bool;
 
     /**

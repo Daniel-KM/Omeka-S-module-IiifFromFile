@@ -66,6 +66,10 @@ class SyncToRepository extends AbstractJob
         $metadataMapping = $args['metadata_mapping'] ?? [];
         $propertyIdentifier = $args['property_identifier'] ?? '';
         $syncStatus = $args['sync_status'] ?? '';
+        $syncMode = $args['sync_mode'] ?? 'overwrite';
+        if (!in_array($syncMode, ['replace', 'overwrite', 'complete'], true)) {
+            $syncMode = 'overwrite';
+        }
         $query = $args['query'] ?? [];
 
         if (!$propertyIdentifier) {
@@ -122,7 +126,7 @@ class SyncToRepository extends AbstractJob
                 }
 
                 // Update metadata on remote.
-                $ok = $connector->updateData($remoteId, $metadata);
+                $ok = $connector->updateData($remoteId, $metadata, $media, $item, $syncMode);
                 if (!$ok) {
                     $this->logger->err(
                         'Media #{media_id}: sync failed for {id}: {error}', // @translate

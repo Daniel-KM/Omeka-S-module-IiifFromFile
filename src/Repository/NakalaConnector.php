@@ -350,35 +350,43 @@ class NakalaConnector implements RepositoryConnectorInterface
         return $this->apiUrl . '/data/' . $identifier . '/' . $sha1;
     }
 
-    public function updateData(string $identifier, array $metadata): bool
-    {
+    public function updateData(
+        string $identifier,
+        array $metadata,
+        ?MediaRepresentation $media = null,
+        ?ItemRepresentation $item = null,
+        string $mode = 'replace'
+    ): bool {
         $this->lastError = '';
         $url = $this->apiUrl . '/datas/' . $identifier;
 
-        $creatorUri = 'http://nakala.fr/terms#creator';
-        $metas = [];
-        foreach ($metadata as $prop => $value) {
-            if ($value === '' || $value === null) {
-                continue;
-            }
-            $uri = $this->termToUri($prop);
-            if ($uri === $creatorUri) {
-                $metas[] = [
-                    'propertyUri' => $creatorUri,
-                    'value' => [
-                        'givenname' => '',
-                        'surname' => $value,
-                        'orcid' => null,
-                    ],
-                ];
-                continue;
-            }
-            $metas[] = [
-                'propertyUri' => $uri,
-                'value' => $value,
-                'lang' => 'fr',
-                'typeUri' => 'http://www.w3.org/2001/XMLSchema#string',
-            ];
+        if (!in_array($mode, ['replace', 'overwrite', 'complete'], true)) {
+            $mode = 'replace';
+        }
+
+        $newMetas = $media && $item
+            ? $this->buildNakalaMetas($metadata, $media, $item)
+            : $this->buildNakalaMetasMinimal($metadata);
+
+        if ($mode === 'replace') {
+            $metas = $newMetas;
+        } else {
+            $remote = $this->fetchData($identifier);
+            $existingMetas = is_array($remote['metas'] ?? null)
+                ? $remote['metas']
+                : [];
+            $metas = $this->mergeMetas($existingMetas, $newMetas, $mode);
+        }
+
+        $missingMetas = $this->checkMandatoryMetas($metas);
+        if ($missingMetas) {
+            $this->lastError = 'Missing mandatory metadata: '
+                . implode(', ', $missingMetas);
+            $this->logger->err(
+                'Nakala: update {id}: {error}', // @translate
+                ['id' => $identifier, 'error' => $this->lastError]
+            );
+            return false;
         }
 
         $this->httpClient->reset();
@@ -494,6 +502,55 @@ class NakalaConnector implements RepositoryConnectorInterface
     /**
      * Build Nakala-format metas from flat key-value metadata.
      */
+    /**
+     * Build metas without media/item context (no fallbacks for mandatory
+     * fields). Used when caller cannot provide context.
+     */
+    protected function buildNakalaMetasMinimal(array $metadata): array
+    {
+        $metas = [];
+        $creatorUri = 'http://nakala.fr/terms#creator';
+        $typeUri = 'http://nakala.fr/terms#type';
+        $createdUri = 'http://nakala.fr/terms#created';
+        $licenseUri = 'http://nakala.fr/terms#license';
+        foreach ($metadata as $remoteProp => $value) {
+            if ($value === '' || $value === null) {
+                continue;
+            }
+            $uri = $this->termToUri($remoteProp);
+            if ($uri === $creatorUri) {
+                $metas[] = [
+                    'propertyUri' => $creatorUri,
+                    'value' => $this->buildCreatorValue((string) $value),
+                ];
+                continue;
+            }
+            if ($uri === $typeUri) {
+                $metas[] = [
+                    'propertyUri' => $typeUri,
+                    'value' => (string) $value,
+                    'typeUri' => 'http://www.w3.org/2001/XMLSchema#anyURI',
+                ];
+                continue;
+            }
+            if ($uri === $createdUri || $uri === $licenseUri) {
+                $metas[] = [
+                    'propertyUri' => $uri,
+                    'value' => (string) $value,
+                    'typeUri' => 'http://www.w3.org/2001/XMLSchema#string',
+                ];
+                continue;
+            }
+            $metas[] = [
+                'propertyUri' => $uri,
+                'value' => $value,
+                'lang' => $this->defaultLang,
+                'typeUri' => 'http://www.w3.org/2001/XMLSchema#string',
+            ];
+        }
+        return $metas;
+    }
+
     protected function buildNakalaMetas(
         array $metadata,
         MediaRepresentation $media,
@@ -662,8 +719,41 @@ class NakalaConnector implements RepositoryConnectorInterface
     }
 
     /**
-     * Check that all Nakala mandatory metadata are present
-     * and return the list of missing ones.
+     * Merge new metas with existing remote metas. Mode "overwrite": for each
+     * propertyUri present in $new, drop existing entries with the same
+     * propertyUri and replace them with $new entries; other existing entries
+     * are kept. Mode "complete": keep all existing entries; only add entries
+     * whose propertyUri is absent from existing.
+     */
+    protected function mergeMetas(
+        array $existing,
+        array $new,
+        string $mode
+    ): array {
+        $newUris = array_unique(array_filter(
+            array_column($new, 'propertyUri')
+        ));
+        if ($mode === 'overwrite') {
+            $kept = array_values(array_filter(
+                $existing,
+                fn ($m) => !in_array($m['propertyUri'] ?? '', $newUris, true)
+            ));
+            return array_merge($kept, $new);
+        }
+        // complete
+        $existingUris = array_unique(array_filter(
+            array_column($existing, 'propertyUri')
+        ));
+        $added = array_values(array_filter(
+            $new,
+            fn ($m) => !in_array($m['propertyUri'] ?? '', $existingUris, true)
+        ));
+        return array_merge($existing, $added);
+    }
+
+    /**
+     * Check that all Nakala mandatory metadata are present and return the list
+     * of missing ones.
      */
     protected function checkMandatoryMetas(array $metas): array
     {
