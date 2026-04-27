@@ -126,12 +126,12 @@ class DataverseConnector implements RepositoryConnectorInterface
     public function createData(
         array $uploadResult,
         array $metadata,
-        array $collectionParams,
+        array $otherParams,
         MediaRepresentation $media,
         ItemRepresentation $item
     ): ?array {
         $this->lastError = '';
-        $alias = (string) ($collectionParams['collection_id'] ?? '');
+        $alias = (string) ($otherParams['collection_id'] ?? '');
         if (!$alias) {
             $this->lastError = 'Missing parent dataverse alias (collection_id).';
             $this->logger->err($this->lastError);
@@ -213,7 +213,7 @@ class DataverseConnector implements RepositoryConnectorInterface
         }
 
         // Step 3: optional publish.
-        $status = $collectionParams['status'] ?? '';
+        $status = $otherParams['status'] ?? '';
         if ($status === 'published') {
             $this->publishDataset($persistentId);
         }

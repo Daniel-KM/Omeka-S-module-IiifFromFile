@@ -56,7 +56,9 @@ class AdminController extends AbstractActionController
         $params = [
             'endpoint' => $endpointKey,
             'endpoint_config' => $endpoints[$endpointKey],
-            'collection_params' => $data['collection_params'] ?? [],
+            'collection' => $data['collection'] ?? '',
+            'status' => $data['status'] ?? '',
+            'other_params' => $data['other_params'] ?? [],
             'query' => $query,
             'metadata_mapping' => $data['metadata_mapping'] ?? [],
             'property_identifier' => $data['property_identifier'] ?? '',
@@ -64,6 +66,7 @@ class AdminController extends AbstractActionController
             'api_user' => $data['api_user'] ?? '',
             'api_key' => $data['api_key'] ?? '',
             'media_mode' => $data['media_mode'] ?? 'convert',
+            'ingester' => $data['ingester'] ?? 'auto',
         ];
 
         $action = $data['action'] ?? 'export';

@@ -180,7 +180,7 @@ class NakalaConnector implements RepositoryConnectorInterface
     public function createData(
         array $uploadResult,
         array $metadata,
-        array $collectionParams,
+        array $otherParams,
         MediaRepresentation $media,
         ItemRepresentation $item
     ): ?array {
@@ -205,10 +205,10 @@ class NakalaConnector implements RepositoryConnectorInterface
                 ],
             ],
             'metas' => $metas,
-            'status' => $collectionParams['status'] ?? 'published',
+            'status' => $otherParams['status'] ?? 'published',
         ];
 
-        $collectionId = $collectionParams['collection_id'] ?? '';
+        $collectionId = $otherParams['collection_id'] ?? '';
         if ($collectionId) {
             $body['collectionsIds'] = [$collectionId];
         }

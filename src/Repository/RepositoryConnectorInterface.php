@@ -49,7 +49,7 @@ interface RepositoryConnectorInterface
      *
      * @param array $uploadResult Result from uploadFile().
      * @param array $metadata Mapped metadata (key-value pairs).
-     * @param array $collectionParams Collection/deposit parameters.
+     * @param array $otherParams Collection/deposit parameters.
      * @param MediaRepresentation $media The source media.
      * @param ItemRepresentation $item The parent item.
      * @return array|null Result with 'identifier' and optionally 'doi',
@@ -58,7 +58,7 @@ interface RepositoryConnectorInterface
     public function createData(
         array $uploadResult,
         array $metadata,
-        array $collectionParams,
+        array $otherParams,
         MediaRepresentation $media,
         ItemRepresentation $item
     ): ?array;

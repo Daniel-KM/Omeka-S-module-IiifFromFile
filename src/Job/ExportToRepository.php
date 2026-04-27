@@ -71,7 +71,13 @@ class ExportToRepository extends AbstractJob
             ]
         );
 
-        $collectionParams = $args['collection_params'] ?? [];
+        $otherParams = ($args['other_params'] ?? []);
+        if (!empty($args['collection'])) {
+            $otherParams['collection_id'] = $args['collection'];
+        }
+        if (!empty($args['status'])) {
+            $otherParams['status'] = $args['status'];
+        }
         $metadataMapping = $args['metadata_mapping'] ?? [];
         $propertyIdentifier = $args['property_identifier'] ?? '';
         $propertyUrl = $args['property_url'] ?? '';
@@ -79,8 +85,13 @@ class ExportToRepository extends AbstractJob
         if (!in_array($mediaMode, ['convert', 'convert_delete_original', 'convert_delete', 'add'], true)) {
             $mediaMode = 'convert_delete_original';
         }
-        $storeOriginal = !empty($args['store_original']);
         $query = $args['query'] ?? [];
+
+        $ingesterChoice = $args['ingester'] ?? 'auto';
+        if (!in_array($ingesterChoice, ['auto', 'iiif', 'url', 'url_local'], true)) {
+            $ingesterChoice = 'auto';
+        }
+        $storeOriginal = $ingesterChoice === 'url_local';
 
         // Use IiifServer plugin if installed, else fallback.
         $plugins = $services->get('ControllerPluginManager');
@@ -118,7 +129,7 @@ class ExportToRepository extends AbstractJob
 
                 $success = $this->exportMedia(
                     $connector, $media, $item,
-                    $collectionParams, $metadataMapping,
+                    $otherParams, $metadataMapping,
                     $propertyIdentifier, $propertyUrl, $mediaMode,
                     $ingesterChoice, $storeOriginal
                 );
@@ -146,7 +157,7 @@ class ExportToRepository extends AbstractJob
         RepositoryConnectorInterface $connector,
         MediaRepresentation $media,
         $item,
-        array $collectionParams,
+        array $otherParams,
         array $metadataMapping,
         string $propertyIdentifier,
         string $propertyUrl,
@@ -178,7 +189,7 @@ class ExportToRepository extends AbstractJob
 
         // Step 3: Create data object.
         $dataResult = $connector->createData(
-            $uploadResult, $metadata, $collectionParams, $media, $item
+            $uploadResult, $metadata, $otherParams, $media, $item
         );
         if (!$dataResult) {
             $this->logger->err(
@@ -208,7 +219,9 @@ class ExportToRepository extends AbstractJob
         // ("iiif" when a IIIF Image API is available, else "url"). The
         // store_original flag is forwarded to the Url ingester for new media
         // (see Omeka\Media\Ingester\Url).
-        $ingester = $connector->getPreferredIngester();
+        $ingester = $ingesterChoice === 'auto'
+            ? $connector->getPreferredIngester()
+            : ($ingesterChoice === 'url_local' ? 'url' : $ingesterChoice);
         $accessUrl = $connector->buildAccessUrl($dataResult);
         $this->updateMedia(
             $media, $item, $iiifInfoUrl, $remoteId, $doi, $dataUri,
