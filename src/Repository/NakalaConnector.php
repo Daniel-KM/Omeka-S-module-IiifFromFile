@@ -43,6 +43,11 @@ class NakalaConnector implements RepositoryConnectorInterface
      */
     protected $lastError = '';
 
+    /**
+     * @var string
+     */
+    protected $defaultLang = 'fr';
+
     public function __construct(HttpClient $httpClient, LoggerInterface $logger)
     {
         $this->httpClient = $httpClient;
@@ -58,6 +63,10 @@ class NakalaConnector implements RepositoryConnectorInterface
     {
         $this->apiUrl = rtrim($params['api_url'] ?? '', '/');
         $this->apiKey = $params['api_key'] ?? '';
+        $lang = trim((string) ($params['default_lang'] ?? ''));
+        if ($lang !== '') {
+            $this->defaultLang = $lang;
+        }
         return $this;
     }
 
@@ -592,7 +601,7 @@ class NakalaConnector implements RepositoryConnectorInterface
             $metas[] = [
                 'propertyUri' => $uri,
                 'value' => $value,
-                'lang' => 'fr',
+                'lang' => $this->defaultLang,
                 'typeUri' => 'http://www.w3.org/2001/XMLSchema#string',
             ];
         }
@@ -640,7 +649,7 @@ class NakalaConnector implements RepositoryConnectorInterface
         if ($typeUri === 'http://www.w3.org/2001/XMLSchema#string'
             && !in_array($uri, $noLang, true)
         ) {
-            $meta['lang'] = 'fr';
+            $meta['lang'] = $this->defaultLang;
         }
         $metas[] = $meta;
     }

@@ -67,6 +67,7 @@ class AdminController extends AbstractActionController
             'api_key' => $data['api_key'] ?? '',
             'media_mode' => $data['media_mode'] ?? 'convert',
             'ingester' => $data['ingester'] ?? 'auto',
+            'default_lang' => $data['default_lang'] ?? '',
             'sync_status' => $data['sync_status'] ?? '',
             'sync_mode' => $data['sync_mode'] ?? 'overwrite',
         ];

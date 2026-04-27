@@ -11,6 +11,24 @@ class IiifFromFileForm extends Form
     public function init(): void
     {
         $this
+            ->setAttribute('id', 'iiif-from-file-form')
+
+            ->add([
+                'name' => 'query',
+                'type' => OmekaElement\Query::class,
+                'options' => [
+                    'label' => 'Items to export', // @translate
+                    'info' => 'Select items whose media files will be exported. Leave empty for all items.', // @translate
+                    'query_resource_type' => 'items',
+                    'query_partial_excludelist' => [
+                        'common/advanced-search/sort',
+                    ],
+                ],
+                'attributes' => [
+                    'id' => 'query',
+                ],
+            ])
+
             ->add([
                 'name' => 'endpoint',
                 'type' => Element\Select::class,
@@ -24,6 +42,7 @@ class IiifFromFileForm extends Form
                     'required' => true,
                 ],
             ])
+
             ->add([
                 'name' => 'collection',
                 'type' => Element\Text::class,
@@ -48,6 +67,18 @@ class IiifFromFileForm extends Form
                 ],
             ])
             ->add([
+                'name' => 'default_lang',
+                'type' => Element\Text::class,
+                'options' => [
+                    'label' => 'Default language code when supported', // @translate
+                    'info' => 'BCP-47 language tag used for textual metadata when no per-value language is set.', // @translate
+                ],
+                'attributes' => [
+                    'id' => 'default_lang',
+                    'placeholder' => 'fr',
+                ],
+            ])
+            ->add([
                 'name' => 'other_params',
                 'type' => OmekaElement\ArrayTextarea::class,
                 'options' => [
@@ -60,21 +91,7 @@ class IiifFromFileForm extends Form
                     'rows' => 4,
                 ],
             ])
-            ->add([
-                'name' => 'query',
-                'type' => OmekaElement\Query::class,
-                'options' => [
-                    'label' => 'Items to export', // @translate
-                    'info' => 'Select items whose media files will be exported. Leave empty for all items.', // @translate
-                    'query_resource_type' => 'items',
-                    'query_partial_excludelist' => [
-                        'common/advanced-search/sort',
-                    ],
-                ],
-                'attributes' => [
-                    'id' => 'query',
-                ],
-            ])
+
             ->add([
                 'name' => 'metadata_mapping',
                 'type' => OmekaElement\ArrayTextarea::class,
@@ -97,6 +114,7 @@ class IiifFromFileForm extends Form
                         TXT,
                 ],
             ])
+
             ->add([
                 'name' => 'property_identifier',
                 'type' => OmekaElement\PropertySelect::class,
@@ -127,6 +145,7 @@ class IiifFromFileForm extends Form
                     'data-placeholder' => 'Select a property…', // @translate
                 ],
             ])
+
             ->add([
                 'name' => 'api_user',
                 'type' => Element\Text::class,
@@ -150,6 +169,7 @@ class IiifFromFileForm extends Form
                     'required' => true,
                 ],
             ])
+
             ->add([
                 'name' => 'media_mode',
                 'type' => Element\Radio::class,
@@ -207,6 +227,7 @@ class IiifFromFileForm extends Form
                     'value' => 'export',
                 ],
             ])
+
             ->add([
                 'name' => 'sync_mode',
                 'type' => Element\Radio::class,

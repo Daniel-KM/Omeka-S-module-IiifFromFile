@@ -47,6 +47,7 @@ class ExportToRepository extends AbstractJob
             'api_url' => $endpointConfig['api_url'] ?? '',
             'api_key' => $args['api_key'] ?? '',
             'api_user' => $args['api_user'] ?? '',
+            'default_lang' => $args['default_lang'] ?? '',
         ]);
 
         // Redact the api_key from the persisted job arguments so the secret is
