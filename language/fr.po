@@ -1,0 +1,440 @@
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-04-27 00:00+0000\n"
+"PO-Revision-Date: 2026-04-27 00:00+0000\n"
+"Last-Translator: Daniel Berthereau <Daniel.fr@Berthereau.net>\n"
+"Language-Team: \n"
+"Language: fr\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Poedit 3.6\n"
+
+#: data/scripts/upgrade.php:33
+#, php-format
+msgid "The module %1$s should be upgraded to version %2$s or later."
+msgstr "Le module %1$s doit être mis à niveau à la version %2$s ou supérieure."
+
+#: data/scripts/upgrade.php:37
+msgid "Missing requirement. Unable to upgrade."
+msgstr "Pré-requis absent. Impossible de mettre à jour."
+
+#: src/Controller/AdminController.php:100
+msgid "Sync"
+msgstr "Sync"
+
+#: view/iiif-from-file/admin/index.phtml:17
+msgid "IIIF from File"
+msgstr "IIIF à partir d’un fichier"
+
+#: view/iiif-from-file/admin/index.phtml:20
+msgid "Export local items and media files to a remote repository."
+msgstr "Exporter les contenus locaux et les médias vers un entrepôt distant."
+
+#: data/scripts/upgrade.php:42
+msgid ""
+"IIIF from File now supports Dataverse repositories alongside Nakala, exposes "
+"ingester and post-deposit media-handling options, and the sync action gains "
+"three modes (complete, overwrite, replace) along with per-value language "
+"tags."
+msgstr ""
+"IIIF from File prend désormais en charge les entrepôts Dataverse, outre "
+"Nakala. Il offre des options de gestion des médias lors de l’ingestion et "
+"après le dépôt. L’action de synchronisation dispose désormais de trois modes "
+"(compléter, écraser, remplacer) ainsi que de champ lange par valeur."
+
+#: src/Repository/DataverseConnector.php:201
+#: src/Repository/DataverseConnector.php:492
+msgid "Dataverse: media #{media_id}: {error}"
+msgstr "Dataverse : média #{media_id} : {error}"
+
+#: src/Repository/DataverseConnector.php:234
+msgid ""
+"Dataverse: media #{media_id}: dataset {pid} created with file id={file_id}."
+msgstr ""
+"Dataverse : média #{media_id} : jeu de données {pid} créé avec le fichier "
+"id={file_id}."
+
+#: src/Repository/DataverseConnector.php:321
+msgid "Dataverse: nothing to add for {id} (mode=complete)."
+msgstr "Dataverse : rien à ajouter pour {id} (mode=completer)."
+
+#: src/Repository/DataverseConnector.php:341
+msgid "Dataverse: could not delete field {field} on {id}: {error}"
+msgstr ""
+"Dataverse : impossible de supprimer le champ {field} sur {id} : {error}"
+
+#: src/Repository/NakalaConnector.php:121
+msgid ""
+"Nakala: uploading file for media #{media_id} ({filename}, {size} bytes)."
+msgstr ""
+"Nakala : téléversement du fichier pour le média #{media_id} ({filename}, "
+"{size} octets)."
+
+#: src/Repository/NakalaConnector.php:161
+#: src/Repository/NakalaConnector.php:172
+#: src/Repository/NakalaConnector.php:264
+#: src/Repository/NakalaConnector.php:301
+msgid "Nakala: media #{media_id}: {error}"
+msgstr "Nakala : média #{media_id} : {error}"
+
+#: src/Repository/NakalaConnector.php:179
+msgid "Nakala: media #{media_id}: file uploaded, sha1={sha1}."
+msgstr "Nakala : média #{media_id} : fichier téléversé, sha1={sha1}."
+
+#: src/Repository/NakalaConnector.php:228
+msgid "Nakala: media #{media_id}: missing mandatory metadata: {metas}."
+msgstr ""
+"Nakala : média #{media_id} : métadonnées obligatoires manquantes : {metas}."
+
+#: src/Repository/NakalaConnector.php:237
+msgid ""
+"Nakala: creating data for media #{media_id} with {count} metas, "
+"collection={collection}, status={status}."
+msgstr ""
+"Nakala : création d’une donnée pour le média #{media_id} avec {count} "
+"métadonnées, collection={collection}, statut={status}."
+
+#: src/Repository/NakalaConnector.php:280
+msgid ""
+"Nakala: media #{media_id}: {error}. Response: {response}. Request body: "
+"{request}"
+msgstr ""
+"Nakala : média #{media_id} : {error}. Réponse : {response}. Corps de la "
+"requête : {request}"
+
+#: src/Repository/NakalaConnector.php:320
+msgid ""
+"Nakala: media #{media_id}: data created, identifier={identifier}, doi={doi}."
+msgstr ""
+"Nakala : média #{media_id} : données créées, identifiant={identifier}, "
+"doi={doi}."
+
+#: src/Repository/NakalaConnector.php:393
+msgid "Nakala: aborting sync (mode={mode}) for {id}: {error}"
+msgstr ""
+"Nakala : interruption de la synchronisation (mode={mode}) pour {id} : {error}"
+
+#: src/Repository/NakalaConnector.php:413
+msgid "Nakala: update {id}: {error}"
+msgstr "Nakala : mise à jour {id} : {error}"
+
+#: src/Repository/NakalaConnector.php:802
+msgid "Nakala: aborting replace for {id}: {error}"
+msgstr "Nakala : interruption du remplacement pour {id} : {error}"
+
+#: src/Job/ExportToRepository.php:38 src/Job/SyncToRepository.php:41
+msgid "Unknown or missing connector: {connector}."
+msgstr "Connecteur inconnu ou manquant : {connector}."
+
+#: src/Job/ExportToRepository.php:61 src/Job/SyncToRepository.php:61
+msgid "Connection test failed: {message}"
+msgstr "Échec du test de connexion : {message}"
+
+#: src/Job/ExportToRepository.php:68
+msgid "Connected to {label}: {message}"
+msgstr "Connecté à {label} : {message}"
+
+#: src/Job/ExportToRepository.php:107
+msgid "{count} items to process."
+msgstr "{count} contenus à traiter."
+
+#: src/Job/ExportToRepository.php:114 src/Job/SyncToRepository.php:100
+msgid "Job stopped by user."
+msgstr "Tâche interrompue par l’utilisateur."
+
+#: src/Job/ExportToRepository.php:147
+msgid ""
+"Export complete: {succeed} exported, {failed} errors, {skipped} skipped, "
+"{total} processed."
+msgstr ""
+"Exportation terminée : {succeed} exportés, {failed} erreurs, {skipped} "
+"ignorés, {total} traités."
+
+#: src/Job/ExportToRepository.php:172
+msgid "Media #{media_id}: file not found ({path})."
+msgstr "Média #{media_id} : fichier introuvable ({path})."
+
+#: src/Job/ExportToRepository.php:182
+msgid "Media #{media_id}: upload failed: {error}"
+msgstr "Média #{media_id} : échec du téléversement : {error}"
+
+#: src/Job/ExportToRepository.php:197
+msgid "Media #{media_id}: deposit rejected: {error}"
+msgstr "Média #{media_id} : dépôt refusé : {error}"
+
+#: src/Job/ExportToRepository.php:210
+msgid "Media #{media_id}: exported as {identifier} (DOI: {doi}, URL: {url})."
+msgstr ""
+"Média #{media_id} : exporté sous le nom {identifier} (DOI : {doi}, URL : "
+"{url})."
+
+#: src/Job/ExportToRepository.php:370
+msgid ""
+"Media #{media_id}: cannot fetch IIIF info.json at {url}, skipping ingester "
+"conversion."
+msgstr ""
+"Média #{media_id} : impossible de récupérer le fichier info.json IIIF sur "
+"{url} ; la conversion par l’ingéreur est ignorée."
+
+#: src/Job/ExportToRepository.php:417
+msgid "Media #{media_id}: converted to {ingester} ingester (source={url})."
+msgstr "Média #{media_id} : converti par l’ingéreur {ingester} (source={url})."
+
+#: src/Job/ExportToRepository.php:435
+msgid "Media #{media_id}: ingester conversion failed: {error}"
+msgstr "Média #{media_id} : échec de la conversion par l’ingéreur : {error}"
+
+#: src/Job/ExportToRepository.php:488
+msgid "Media #{media_id}: property update failed: {error}"
+msgstr "Média #{media_id} : échec de la mise à jour des propriétés : {error}"
+
+#: src/Job/ExportToRepository.php:551
+msgid ""
+"Media #{media_id}: new {ingester} media #{new_id} added to item #{item_id}."
+msgstr ""
+"Média #{media_id} : nouveau média {ingester} #{new_id} ajouté au contenu "
+"#{item_id}."
+
+#: src/Job/ExportToRepository.php:561
+msgid "Media #{media_id}: add remote media failed: {error}"
+msgstr "Média #{media_id} : échec de l’ajout du média distant : {error}"
+
+#: src/Job/ExportToRepository.php:602
+msgid "Media #{media_id}: local files deleted ({types})."
+msgstr "Média #{media_id} : fichiers locaux supprimés ({types})."
+
+#: src/Job/ExportToRepository.php:608
+msgid "Media #{media_id}: some local files could not be deleted: {errors}."
+msgstr ""
+"Média #{media_id} : certains fichiers locaux n’ont pas pu être supprimés : "
+"{errors}."
+
+#: src/Job/SyncToRepository.php:78
+msgid "No identifier property configured. Cannot find exported media."
+msgstr ""
+"Aucune propriété identifiant n’est configurée. Impossible de retrouver le "
+"média exporté."
+
+#: src/Job/SyncToRepository.php:84
+msgid "Starting sync to {label}."
+msgstr "Début de la synchronisation vers {label}."
+
+#: src/Job/SyncToRepository.php:118
+msgid "Media #{media_id}: skipped, malformed identifier {id}."
+msgstr "Média #{media_id} : ignoré, identifiant {id} incorrect."
+
+#: src/Job/SyncToRepository.php:141
+msgid "Media #{media_id}: sync failed for {id}: {error}"
+msgstr "Média #{media_id} : échec de la synchronisation pour {id} : {error}"
+
+#: src/Job/SyncToRepository.php:158
+msgid "Media #{media_id}: synced to {id}."
+msgstr "Média #{media_id} : synchronisé avec {id}."
+
+#: src/Job/SyncToRepository.php:166
+msgid ""
+"Sync complete: {synced} synced, {failed} errors, {skipped} skipped, {total} "
+"processed."
+msgstr ""
+"Synchronisation terminée : {synced} synchronisés, {failed} erreurs, "
+"{skipped} ignorés, {total} traités."
+
+#: src/Form/IiifFromFileForm.php:20
+msgid "Items to export"
+msgstr "Contenus à exporter"
+
+#: src/Form/IiifFromFileForm.php:35
+msgid "Destination"
+msgstr "Destination"
+
+#: src/Form/IiifFromFileForm.php:47
+msgid "Endpoint user"
+msgstr "Utilisateur entrepôt"
+
+#: src/Form/IiifFromFileForm.php:57
+msgid "Endpoint authentication key"
+msgstr "Clé d’authentification entrepôt"
+
+#: src/Form/IiifFromFileForm.php:70
+msgid ""
+"Parent container on the remote: a Nakala collection identifier (e.g. "
+"10.34847/nkl.xxxx) for Nakala, or a parent dataverse alias for Dataverse."
+msgstr ""
+"Conteneur parent sur le serveur distant : un identifiant de collection "
+"Nakala (par exemple 10.34847/nkl.xxxx), ou un alias de dataverse parent pour "
+"Dataverse."
+
+#: src/Form/IiifFromFileForm.php:81
+msgid "Deposit status: \"pending\" or \"published\"."
+msgstr "Statut du dépôt : « en attente » ou « publié »."
+
+#: src/Form/IiifFromFileForm.php:92
+msgid "Default language code for values when supported"
+msgstr "Code de langue par défaut pour les valeurs, si pris en charge"
+
+#: src/Form/IiifFromFileForm.php:103
+msgid "Other deposit parameters"
+msgstr "Autres paramètres de l’entrepôt"
+
+#: src/Form/IiifFromFileForm.php:104
+msgid "Additional parameters for the remote deposit, one key=value per line."
+msgstr ""
+"Paramètres supplémentaires pour l’entrepôt, une paire clé=valeur par ligne."
+
+#: src/Form/IiifFromFileForm.php:117
+msgid "Metadata mapping"
+msgstr "Alignement des métadonnées"
+
+#: src/Form/IiifFromFileForm.php:118
+msgid ""
+"Map local properties to remote metadata. One mapping per line.\n"
+"Format: remote_property = local_source\n"
+"The local source can be a property (dcterms:title), a prefixed item property "
+"(o:item/dcterms:title), or a fixed value in quotes. See readme for more info "
+"about mandatory metadata."
+msgstr ""
+"Associez les propriétés locales aux métadonnées distantes. Une "
+"correspondance par ligne.\n"
+"Format : propriété_distante = source_locale\n"
+"La source locale peut être une propriété (dcterms:title), une propriété de "
+"contenu préfixée (o:item/dcterms:title) ou une valeur fixe entre guillemets. "
+"Consultez le fichier readme pour plus d’informations sur les métadonnées "
+"obligatoires."
+
+#: src/Form/IiifFromFileForm.php:140
+msgid "Store remote identifier (doi, ark…) in media property"
+msgstr "Enregistrer l’identifiant (doi, ark…) dans une propriété du média"
+
+#: src/Form/IiifFromFileForm.php:141 src/Form/IiifFromFileForm.php:155
+msgid "Do not store"
+msgstr "Ne pas enregistrer"
+
+#: src/Form/IiifFromFileForm.php:147 src/Form/IiifFromFileForm.php:161
+msgid "Select a property…"
+msgstr "Choisir une propriété…"
+
+#: src/Form/IiifFromFileForm.php:154
+msgid "Store remote IIIF URL in media property"
+msgstr "Enregistrer l’URL IIIF de l’entrepôt dans une propriété du media"
+
+#: src/Form/IiifFromFileForm.php:169
+msgid "Media (iiif or url) handling after deposit"
+msgstr "Traitement des médias (iiif ou url) après le dépôt"
+
+#: src/Form/IiifFromFileForm.php:174
+msgid "Add a new media to the item and keep original one"
+msgstr "Ajouter un nouveau média au contenu et conserver l’original"
+
+#: src/Form/IiifFromFileForm.php:175
+msgid "Convert media and delete the original file"
+msgstr "Convertir le média et supprimer le fichier original"
+
+#: src/Form/IiifFromFileForm.php:176
+msgid "Convert media and delete original and derivative files"
+msgstr "Convertir le média et supprimer les originaux et les vignettes"
+
+#: src/Form/IiifFromFileForm.php:190
+msgid "Ingester for converted or new media"
+msgstr "Ingéreur pour les médias convertis ou nouveaux"
+
+#: src/Form/IiifFromFileForm.php:195
+msgid "Auto (IIIF if supported, else URL without local storage)"
+msgstr "Auto (IIIF si pris en charge, sinon URL sans stockage local)"
+
+#: src/Form/IiifFromFileForm.php:196
+msgid "IIIF"
+msgstr "IIIF"
+
+#: src/Form/IiifFromFileForm.php:197
+msgid ""
+"URL without local storage (the original file is served from remote "
+"repository)"
+msgstr ""
+"URL sans stockage local (le fichier original est disponible depuis "
+"l’entrepôt)"
+
+#: src/Form/IiifFromFileForm.php:198
+msgid "URL with local storage"
+msgstr "URL avec stockage local"
+
+#: src/Form/IiifFromFileForm.php:211
+msgid "Action"
+msgstr "Action"
+
+#: src/Form/IiifFromFileForm.php:213
+msgid "Export new files to repository"
+msgstr "Exporter les nouveaux fichiers vers l’entrepôt"
+
+#: src/Form/IiifFromFileForm.php:214
+msgid "Sync metadata of already exported files"
+msgstr "Synchroniser les métadonnées des fichiers déjà exportés"
+
+#: src/Form/IiifFromFileForm.php:227
+msgid "Sync mode"
+msgstr "Mode de synchronisation"
+
+#: src/Form/IiifFromFileForm.php:232
+msgid "Complete record (only add metadata missing on remote)"
+msgstr ""
+"Compléter la notice (ajouter uniquement les métadonnées manquantes sur "
+"l’entrepôt)"
+
+#: src/Form/IiifFromFileForm.php:233
+msgid "Overwrite mapped metadata (keep unmapped remote metadata)"
+msgstr ""
+"Remplacer les métadonnées alignées (conserver les métadonnées distantes non "
+"alignées)"
+
+#: src/Form/IiifFromFileForm.php:234
+msgid "Replace record entirely (discard unmapped remote metadata)"
+msgstr ""
+"Remplacer entièrement la notice (ignorer les métadonnées distantes non "
+"alignées)"
+
+#: src/Form/IiifFromFileForm.php:246
+msgid "Status to set on sync"
+msgstr "Statut pour la synchronisation"
+
+#: src/Form/IiifFromFileForm.php:247
+msgid ""
+"When syncing, optionally update the remote status. Nakala: pending/"
+"published; Dataverse: published."
+msgstr ""
+"Lors de la synchronisation, vous pouvez actualiser le statut. Nakala : "
+"pending/published ; Dataverse : published."
+
+#: src/Form/IiifFromFileForm.php:248
+msgid "Do not change status"
+msgstr "Ne pas changer de statut"
+
+#: src/Form/IiifFromFileForm.php:250
+msgid "Pending"
+msgstr "En attente"
+
+#: src/Form/IiifFromFileForm.php:251
+msgid "Published"
+msgstr "Publié"
+
+#: src/Form/IiifFromFileForm.php:264
+msgid "Run"
+msgstr "Lancer"
+
+#: src/Controller/AdminController.php:38
+msgid "Invalid form data."
+msgstr "Données du formulaire non valides."
+
+#: src/Controller/AdminController.php:59
+msgid "Unknown endpoint."
+msgstr "Entrepôt inconnu."
+
+#: src/Controller/AdminController.php:97
+msgid ""
+"Processing {action} in background (job {link_job}#{job_id}{link_end}, "
+"{link_log}logs{link_end})."
+msgstr ""
+"Lancement de {action} en arrière-plan (tâche {link_job}#{job_id}{link_end}, "
+"{link_log}journaux{link_end})."
