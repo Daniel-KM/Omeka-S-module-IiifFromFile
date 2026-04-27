@@ -257,32 +257,71 @@ class ExportToRepository extends AbstractJob
             if (count($parts) !== 2 || $parts[0] === '' || $parts[1] === '') {
                 continue;
             }
-            $value = $this->resolveValue($parts[1], $media, $item);
-            if ($value !== null && ($value['value'] ?? '') !== '') {
-                $result[$parts[0]] = $value;
+            $values = $this->resolveValue($parts[1], $media, $item);
+            if ($values) {
+                $result[$parts[0]] = $values;
             }
         }
         return $result;
     }
 
+    /**
+     * Returns the list of value-objects mapped to a single remote property, or
+     * null when no value matches. Each entry is shaped as ['value' => string,
+     * 'lang' => ?string]. Multi-valued Omeka properties produce multiple
+     * entries.
+     */
     protected function resolveValue(string $source, $media, $item): ?array
     {
         if (preg_match('/^"(.*)"$/', $source, $m)) {
-            return ['value' => $m[1], 'lang' => null];
+            return [['value' => $m[1], 'lang' => null]];
         }
         if (strpos($source, 'o:item/') === 0) {
-            $v = $item->value(substr($source, 7));
-            return $v
-                ? ['value' => (string) $v, 'lang' => $v->lang() ?: null]
+            $values = $item->value(substr($source, 7), ['all' => true]) ?: [];
+        } else {
+            $values = $media->value($source, ['all' => true]) ?: [];
+            if (!$values) {
+                $values = $item->value($source, ['all' => true]) ?: [];
+            }
+        }
+        if (!$values) {
+            return null;
+        }
+        $result = [];
+        foreach ($values as $v) {
+            $result[] = $this->valueToArray($v);
+        }
+        return $result;
+    }
+
+    /**
+     * Convert an Omeka value into the canonical mapping shape, exposing the URI
+     * for "uri" / "resource:*" values so URI-typed remote metadata receive an
+     * actual URI instead of a string label.
+     */
+    protected function valueToArray($v): array
+    {
+        $type = method_exists($v, 'type') ? (string) $v->type() : 'literal';
+        if ($type === 'uri') {
+            $uri = method_exists($v, 'uri') ? (string) $v->uri() : '';
+            $value = $uri !== '' ? $uri : (string) $v;
+            return ['value' => $value, 'lang' => null, 'type' => 'uri'];
+        }
+        if (strpos($type, 'resource') === 0) {
+            $resource = method_exists($v, 'valueResource')
+                ? $v->valueResource()
                 : null;
+            $uri = $resource && method_exists($resource, 'apiUrl')
+                ? (string) $resource->apiUrl()
+                : '';
+            $value = $uri !== '' ? $uri : (string) $v;
+            return ['value' => $value, 'lang' => null, 'type' => 'uri'];
         }
-        $v = $media->value($source);
-        if (!$v) {
-            $v = $item->value($source);
-        }
-        return $v
-            ? ['value' => (string) $v, 'lang' => $v->lang() ?: null]
-            : null;
+        return [
+            'value' => (string) $v,
+            'lang' => $v->lang() ?: null,
+            'type' => 'literal',
+        ];
     }
 
     protected function updateMedia(

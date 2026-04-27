@@ -615,15 +615,46 @@ class DataverseConnector implements RepositoryConnectorInterface
     }
 
     /**
-     * Extract scalar value from either ['value' => ..., 'lang' => ...] or a
-     * legacy scalar.
+     * Extract the first scalar from any supported value shape: a list of
+     * value-objects [['value' => ..., 'lang' => ...], ...], a single
+     * value-object ['value' => ..., 'lang' => ...], or a legacy scalar.
      */
     protected function valueOf($v): string
     {
         if (is_array($v)) {
-            return (string) ($v['value'] ?? '');
+            if (array_key_exists('value', $v)) {
+                return (string) $v['value'];
+            }
+            // List of value-objects: take the first.
+            $first = reset($v);
+            return $first ? $this->valueOf($first) : '';
         }
         return (string) $v;
+    }
+
+    /**
+     * Extract every string value from a list-of-value-objects, single
+     * value-object, or scalar shape.
+     */
+    protected function allValuesOf($v): array
+    {
+        if ($v === null || $v === '') {
+            return [];
+        }
+        if (is_array($v)) {
+            if (array_key_exists('value', $v)) {
+                $s = (string) $v['value'];
+                return $s === '' ? [] : [$s];
+            }
+            $list = [];
+            foreach ($v as $item) {
+                foreach ($this->allValuesOf($item) as $s) {
+                    $list[] = $s;
+                }
+            }
+            return $list;
+        }
+        return [(string) $v];
     }
 
     protected function buildCitationFields(
@@ -631,6 +662,10 @@ class DataverseConnector implements RepositoryConnectorInterface
         ?MediaRepresentation $media,
         ?ItemRepresentation $item
     ): array {
+        // Capture multi-valued cells (keywords) before flattening.
+        $rawKeywords = $metadata['keywords']
+            ?? $metadata['keyword']
+            ?? null;
         $metadata = array_map(fn ($v) => $this->valueOf($v), $metadata);
         $title = (string) ($metadata['title']
             ?? ($item ? ($item->displayTitle() ?: '') : ''));
@@ -689,9 +724,14 @@ class DataverseConnector implements RepositoryConnectorInterface
             $fields[] = $this->primitive('productionDate', $date);
         }
         // Optional: keywords.
-        $keywords = $metadata['keywords'] ?? $metadata['keyword'] ?? null;
-        if ($keywords) {
-            $list = is_array($keywords) ? $keywords : explode(';', (string) $keywords);
+        if ($rawKeywords !== null && $rawKeywords !== '') {
+            $allKeywords = $this->allValuesOf($rawKeywords);
+            $list = [];
+            foreach ($allKeywords as $kw) {
+                foreach (explode(';', $kw) as $part) {
+                    $list[] = $part;
+                }
+            }
             $children = [];
             foreach ($list as $kw) {
                 $kw = trim((string) $kw);

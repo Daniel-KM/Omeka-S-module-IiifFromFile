@@ -558,10 +558,14 @@ class NakalaConnector implements RepositoryConnectorInterface
     {
         if (is_array($v)) {
             $val = (string) ($v['value'] ?? '');
+            $type = (string) ($v['type'] ?? 'literal');
+            if ($type === 'uri') {
+                return [$val, null, 'uri'];
+            }
             $lang = $v['lang'] ?? null;
-            return [$val, $lang ?: $this->defaultLang];
+            return [$val, $lang ?: $this->defaultLang, 'literal'];
         }
-        return [(string) $v, $this->defaultLang];
+        return [(string) $v, $this->defaultLang, 'literal'];
     }
 
     /**
@@ -576,45 +580,68 @@ class NakalaConnector implements RepositoryConnectorInterface
         $createdUri = 'http://nakala.fr/terms#created';
         $licenseUri = 'http://nakala.fr/terms#license';
         foreach ($metadata as $remoteProp => $raw) {
-            if ($raw === '' || $raw === null) {
-                continue;
-            }
-            [$value, $lang] = $this->extractValueLang($raw);
-            if ($value === '') {
-                continue;
-            }
-            $uri = $this->termToUri($remoteProp);
-            if ($uri === $creatorUri) {
-                $metas[] = [
-                    'propertyUri' => $creatorUri,
-                    'value' => $this->buildCreatorValue($value),
-                ];
-                continue;
-            }
-            if ($uri === $typeUri) {
-                $metas[] = [
-                    'propertyUri' => $typeUri,
-                    'value' => $value,
-                    'typeUri' => 'http://www.w3.org/2001/XMLSchema#anyURI',
-                ];
-                continue;
-            }
-            if ($uri === $createdUri || $uri === $licenseUri) {
+            foreach ($this->normalizeValueList($raw) as [$value, $lang, $type]) {
+                if ($value === '') {
+                    continue;
+                }
+                $uri = $this->termToUri($remoteProp);
+                if ($uri === $creatorUri) {
+                    $metas[] = [
+                        'propertyUri' => $creatorUri,
+                        'value' => $this->buildCreatorValue($value),
+                    ];
+                    continue;
+                }
+                if ($uri === $typeUri || $type === 'uri') {
+                    $metas[] = [
+                        'propertyUri' => $uri,
+                        'value' => $value,
+                        'typeUri' => 'http://www.w3.org/2001/XMLSchema#anyURI',
+                    ];
+                    continue;
+                }
+                if ($uri === $createdUri || $uri === $licenseUri) {
+                    $metas[] = [
+                        'propertyUri' => $uri,
+                        'value' => $value,
+                        'typeUri' => 'http://www.w3.org/2001/XMLSchema#string',
+                    ];
+                    continue;
+                }
                 $metas[] = [
                     'propertyUri' => $uri,
                     'value' => $value,
+                    'lang' => $lang ?: $this->defaultLang,
                     'typeUri' => 'http://www.w3.org/2001/XMLSchema#string',
                 ];
-                continue;
             }
-            $metas[] = [
-                'propertyUri' => $uri,
-                'value' => $value,
-                'lang' => $lang ?: $this->defaultLang,
-                'typeUri' => 'http://www.w3.org/2001/XMLSchema#string',
-            ];
         }
         return $metas;
+    }
+
+    /**
+     * Normalize a metadata cell to a list of [value, lang] pairs. Accepts: - a
+     * list of value-objects: [['value' => ..., 'lang' => ...], ...] - a single
+     * value-object: ['value' => ..., 'lang' => ...] - a legacy scalar string.
+     */
+    protected function normalizeValueList($raw): array
+    {
+        if ($raw === '' || $raw === null) {
+            return [];
+        }
+        if (is_array($raw)) {
+            // Single value-object.
+            if (array_key_exists('value', $raw)) {
+                return [$this->extractValueLang($raw)];
+            }
+            // List of value-objects.
+            $list = [];
+            foreach ($raw as $v) {
+                $list[] = $this->extractValueLang($v);
+            }
+            return $list;
+        }
+        return [$this->extractValueLang($raw)];
     }
 
     /**
