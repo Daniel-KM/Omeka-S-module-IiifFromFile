@@ -509,35 +509,53 @@ class NakalaConnector implements RepositoryConnectorInterface
     }
 
     /**
-     * Build Nakala-format metas from flat key-value metadata.
+     * Extract value/lang from either the new array shape
+     * ['value' => ..., 'lang' => ...] or a legacy scalar string. Falls back to
+     * the connector's default language when no per-value language is set.
+     *
+     * @return array{0:string,1:?string}
      */
+    protected function extractValueLang($v): array
+    {
+        if (is_array($v)) {
+            $val = (string) ($v['value'] ?? '');
+            $lang = $v['lang'] ?? null;
+            return [$val, $lang ?: $this->defaultLang];
+        }
+        return [(string) $v, $this->defaultLang];
+    }
+
     /**
-     * Build metas without media/item context (no fallbacks for mandatory
-     * fields). Used when caller cannot provide context.
+     * Build Nakala metas from a flat per-property metadata array. Each value
+     * may be a string or ['value' => ..., 'lang' => ...].
      */
-    protected function buildNakalaMetasMinimal(array $metadata): array
+    protected function buildNakalaMetasFlat(array $metadata): array
     {
         $metas = [];
         $creatorUri = 'http://nakala.fr/terms#creator';
         $typeUri = 'http://nakala.fr/terms#type';
         $createdUri = 'http://nakala.fr/terms#created';
         $licenseUri = 'http://nakala.fr/terms#license';
-        foreach ($metadata as $remoteProp => $value) {
-            if ($value === '' || $value === null) {
+        foreach ($metadata as $remoteProp => $raw) {
+            if ($raw === '' || $raw === null) {
+                continue;
+            }
+            [$value, $lang] = $this->extractValueLang($raw);
+            if ($value === '') {
                 continue;
             }
             $uri = $this->termToUri($remoteProp);
             if ($uri === $creatorUri) {
                 $metas[] = [
                     'propertyUri' => $creatorUri,
-                    'value' => $this->buildCreatorValue((string) $value),
+                    'value' => $this->buildCreatorValue($value),
                 ];
                 continue;
             }
             if ($uri === $typeUri) {
                 $metas[] = [
                     'propertyUri' => $typeUri,
-                    'value' => (string) $value,
+                    'value' => $value,
                     'typeUri' => 'http://www.w3.org/2001/XMLSchema#anyURI',
                 ];
                 continue;
@@ -545,7 +563,7 @@ class NakalaConnector implements RepositoryConnectorInterface
             if ($uri === $createdUri || $uri === $licenseUri) {
                 $metas[] = [
                     'propertyUri' => $uri,
-                    'value' => (string) $value,
+                    'value' => $value,
                     'typeUri' => 'http://www.w3.org/2001/XMLSchema#string',
                 ];
                 continue;
@@ -553,11 +571,20 @@ class NakalaConnector implements RepositoryConnectorInterface
             $metas[] = [
                 'propertyUri' => $uri,
                 'value' => $value,
-                'lang' => $this->defaultLang,
+                'lang' => $lang ?: $this->defaultLang,
                 'typeUri' => 'http://www.w3.org/2001/XMLSchema#string',
             ];
         }
         return $metas;
+    }
+
+    /**
+     * Build metas without media/item context (no fallbacks for mandatory
+     * fields). Used when caller cannot provide context.
+     */
+    protected function buildNakalaMetasMinimal(array $metadata): array
+    {
+        return $this->buildNakalaMetasFlat($metadata);
     }
 
     protected function buildNakalaMetas(
@@ -565,46 +592,7 @@ class NakalaConnector implements RepositoryConnectorInterface
         MediaRepresentation $media,
         ItemRepresentation $item
     ): array {
-        $metas = [];
-        $creatorUri = 'http://nakala.fr/terms#creator';
-        $typeUri = 'http://nakala.fr/terms#type';
-        $createdUri = 'http://nakala.fr/terms#created';
-        $licenseUri = 'http://nakala.fr/terms#license';
-        foreach ($metadata as $remoteProp => $value) {
-            if ($value === '' || $value === null) {
-                continue;
-            }
-            $uri = $this->termToUri($remoteProp);
-            if ($uri === $creatorUri) {
-                $metas[] = [
-                    'propertyUri' => $creatorUri,
-                    'value' => $this->buildCreatorValue((string) $value),
-                ];
-                continue;
-            }
-            if ($uri === $typeUri) {
-                $metas[] = [
-                    'propertyUri' => $typeUri,
-                    'value' => (string) $value,
-                    'typeUri' => 'http://www.w3.org/2001/XMLSchema#anyURI',
-                ];
-                continue;
-            }
-            if ($uri === $createdUri || $uri === $licenseUri) {
-                $metas[] = [
-                    'propertyUri' => $uri,
-                    'value' => (string) $value,
-                    'typeUri' => 'http://www.w3.org/2001/XMLSchema#string',
-                ];
-                continue;
-            }
-            $metas[] = [
-                'propertyUri' => $uri,
-                'value' => $value,
-                'lang' => $this->defaultLang,
-                'typeUri' => 'http://www.w3.org/2001/XMLSchema#string',
-            ];
-        }
+        $metas = $this->buildNakalaMetasFlat($metadata);
 
         // Ensure Nakala mandatory fields (nakala.fr/terms#).
         $this->ensureMeta($metas, 'http://nakala.fr/terms#title',

@@ -258,28 +258,31 @@ class ExportToRepository extends AbstractJob
                 continue;
             }
             $value = $this->resolveValue($parts[1], $media, $item);
-            if ($value !== null && $value !== '') {
+            if ($value !== null && ($value['value'] ?? '') !== '') {
                 $result[$parts[0]] = $value;
             }
         }
         return $result;
     }
 
-    protected function resolveValue(string $source, $media, $item): ?string
+    protected function resolveValue(string $source, $media, $item): ?array
     {
         if (preg_match('/^"(.*)"$/', $source, $m)) {
-            return $m[1];
+            return ['value' => $m[1], 'lang' => null];
         }
         if (strpos($source, 'o:item/') === 0) {
             $v = $item->value(substr($source, 7));
-            return $v ? (string) $v : null;
+            return $v
+                ? ['value' => (string) $v, 'lang' => $v->lang() ?: null]
+                : null;
         }
         $v = $media->value($source);
-        if ($v) {
-            return (string) $v;
+        if (!$v) {
+            $v = $item->value($source);
         }
-        $v = $item->value($source);
-        return $v ? (string) $v : null;
+        return $v
+            ? ['value' => (string) $v, 'lang' => $v->lang() ?: null]
+            : null;
     }
 
     protected function updateMedia(

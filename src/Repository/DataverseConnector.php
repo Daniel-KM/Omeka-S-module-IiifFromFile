@@ -468,11 +468,24 @@ class DataverseConnector implements RepositoryConnectorInterface
      * metadata. Mandatory fields (title, author, datasetContact, dsDescription,
      * subject) are filled with sensible defaults.
      */
+    /**
+     * Extract scalar value from either ['value' => ..., 'lang' => ...] or a
+     * legacy scalar.
+     */
+    protected function valueOf($v): string
+    {
+        if (is_array($v)) {
+            return (string) ($v['value'] ?? '');
+        }
+        return (string) $v;
+    }
+
     protected function buildCitationFields(
         array $metadata,
         ?MediaRepresentation $media,
         ?ItemRepresentation $item
     ): array {
+        $metadata = array_map(fn ($v) => $this->valueOf($v), $metadata);
         $title = (string) ($metadata['title']
             ?? ($item ? ($item->displayTitle() ?: '') : ''));
         if ($title === '' && $media) {
