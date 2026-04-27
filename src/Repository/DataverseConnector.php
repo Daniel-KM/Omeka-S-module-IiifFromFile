@@ -26,6 +26,18 @@ use Omeka\Api\Representation\MediaRepresentation;
 class DataverseConnector implements RepositoryConnectorInterface
 {
     /**
+     * Citation block fields Dataverse considers mandatory; cannot be deleted by
+     * sync mode "replace".
+     */
+    protected const DATAVERSE_MANDATORY_FIELDS = [
+        'title',
+        'author',
+        'datasetContact',
+        'dsDescription',
+        'subject',
+    ];
+
+    /**
      * @var HttpClient
      */
     protected $httpClient;
@@ -270,14 +282,76 @@ class DataverseConnector implements RepositoryConnectorInterface
         ?MediaRepresentation $media = null,
         ?ItemRepresentation $item = null,
         string $mode = 'replace'
-    ): bool
-    {
+    ): bool {
         $this->lastError = '';
+        if (!in_array($mode, ['replace', 'overwrite', 'complete'], true)) {
+            $mode = 'replace';
+        }
+
+        // Refuse to mutate a dataset that is currently in DRAFT: Dataverse
+        // keeps a single working draft and editing it would silently overwrite
+        // ongoing local edits performed via the web UI.
+        $remote = $this->fetchData($identifier);
+        if ($remote === null) {
+            $this->lastError = 'Dataverse: cannot fetch dataset ' . $identifier
+                . ': ' . $this->getLastError();
+            $this->logger->err($this->lastError);
+            return false;
+        }
+        $state = $remote['latestVersion']['versionState']
+            ?? $remote['versionState']
+            ?? null;
+        if ($state === 'DRAFT') {
+            $this->lastError = 'Dataverse: dataset ' . $identifier
+                . ' is in DRAFT state; refusing to update metadata.';
+            $this->logger->err($this->lastError);
+            return false;
+        }
+
+        $fields = $this->buildCitationFields($metadata, $media, $item);
+
+        if ($mode === 'complete') {
+            $existing = $this->extractExistingTypeNames($remote);
+            $fields = array_values(array_filter(
+                $fields,
+                fn ($f) => !in_array($f['typeName'] ?? '', $existing, true)
+            ));
+            if (!$fields) {
+                $this->logger->info(
+                    'Dataverse: nothing to add for {id} (mode=complete).', // @translate
+                    ['id' => $identifier]
+                );
+                return true;
+            }
+        }
+
+        if ($mode === 'replace') {
+            $newTypeNames = array_filter(array_column($fields, 'typeName'));
+            $remoteFields = $remote['latestVersion']['metadataBlocks']['citation']['fields']
+                ?? [];
+            $toDelete = array_values(array_filter(
+                $remoteFields,
+                fn ($f) => isset($f['typeName'])
+                    && !in_array($f['typeName'], $newTypeNames, true)
+                    && !in_array($f['typeName'], self::DATAVERSE_MANDATORY_FIELDS, true)
+            ));
+            foreach ($toDelete as $field) {
+                if (!$this->deleteCitationField($identifier, $field)) {
+                    $this->logger->warn(
+                        'Dataverse: could not delete field {field} on {id}: {error}', // @translate
+                        [
+                            'field' => $field['typeName'],
+                            'id' => $identifier,
+                            'error' => $this->lastError,
+                        ]
+                    );
+                }
+            }
+        }
+
         $url = $this->apiUrl . '/api/datasets/:persistentId/editMetadata'
             . '?persistentId=' . rawurlencode($identifier) . '&replace=true';
-        $body = [
-            'fields' => $this->buildCitationFields($metadata, null, null),
-        ];
+        $body = ['fields' => $fields];
         $this->httpClient->reset();
         $this->httpClient->setUri($url);
         $this->httpClient->setMethod(Request::METHOD_PUT);
@@ -360,6 +434,14 @@ class DataverseConnector implements RepositoryConnectorInterface
         return $this->lastError;
     }
 
+    public function isValidIdentifier(string $identifier): bool
+    {
+        // Dataverse persistentId: DOI ("doi:10.x/...") or handle ("hdl:...").
+        $id = trim($identifier);
+        return (bool) preg_match('~^(doi|hdl):.+~', $id)
+            || (bool) preg_match('~^10\.\d{4,9}/.+~', $id);
+    }
+
     /**
      * Add a file to an existing dataset.
      */
@@ -428,6 +510,48 @@ class DataverseConnector implements RepositoryConnectorInterface
     }
 
     /**
+     * Delete a citation field (by typeName + value) on the latest draft of the
+     * dataset. Used by sync mode "replace" to drop unmapped non-mandatory
+     * fields before re-pushing the new ones.
+     */
+    protected function deleteCitationField(
+        string $identifier,
+        array $field
+    ): bool {
+        $this->lastError = '';
+        $url = $this->apiUrl . '/api/datasets/:persistentId/deleteMetadata'
+            . '?persistentId=' . rawurlencode($identifier);
+        $body = ['fields' => [$field]];
+        $this->httpClient->reset();
+        $this->httpClient->setUri($url);
+        $this->httpClient->setMethod(Request::METHOD_PUT);
+        $this->httpClient->setHeaders([
+            'X-Dataverse-key' => $this->apiKey,
+            'Accept' => 'application/json',
+            'Content-Type' => 'application/json',
+        ]);
+        $this->httpClient->setRawBody(json_encode(
+            $body,
+            JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+        ));
+        try {
+            $response = $this->httpClient->send();
+        } catch (\Throwable $e) {
+            $this->lastError = 'Delete failed: ' . $e->getMessage();
+            return false;
+        }
+        if (!$response->isSuccess()) {
+            $this->lastError = sprintf(
+                'Delete rejected (HTTP %d): %s',
+                $response->getStatusCode(),
+                $this->extractErrorMessage($response->getBody())
+            );
+            return false;
+        }
+        return true;
+    }
+
+    /**
      * Publish a dataset (major version).
      */
     protected function publishDataset(string $persistentId): bool
@@ -468,6 +592,28 @@ class DataverseConnector implements RepositoryConnectorInterface
      * metadata. Mandatory fields (title, author, datasetContact, dsDescription,
      * subject) are filled with sensible defaults.
      */
+    /**
+     * Fetch typeNames present in the citation block of the remote dataset
+     * (latest version).
+     */
+    protected function fetchExistingTypeNames(string $identifier): array
+    {
+        return $this->extractExistingTypeNames(
+            $this->fetchData($identifier) ?? []
+        );
+    }
+
+    protected function extractExistingTypeNames(array $data): array
+    {
+        $blocks = $data['latestVersion']['metadataBlocks']
+            ?? $data['metadataBlocks']
+            ?? [];
+        $citation = $blocks['citation']['fields'] ?? [];
+        return array_values(array_unique(array_filter(
+            array_column($citation, 'typeName')
+        )));
+    }
+
     /**
      * Extract scalar value from either ['value' => ..., 'lang' => ...] or a
      * legacy scalar.

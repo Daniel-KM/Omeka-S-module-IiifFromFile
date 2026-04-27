@@ -113,6 +113,14 @@ class SyncToRepository extends AbstractJob
                     ++$this->totalSkipped;
                     continue;
                 }
+                if (!$connector->isValidIdentifier($remoteId)) {
+                    $this->logger->warn(
+                        'Media #{media_id}: skipped, malformed identifier {id}.', // @translate
+                        ['media_id' => $media->id(), 'id' => $remoteId]
+                    );
+                    ++$this->totalSkipped;
+                    continue;
+                }
 
                 ++$this->totalProcessed;
 

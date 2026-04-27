@@ -126,4 +126,12 @@ interface RepositoryConnectorInterface
      * Get the last error message (for logging).
      */
     public function getLastError(): string;
+
+    /**
+     * Check whether the supplied string is a syntactically valid remote
+     * identifier for this connector. Used by sync jobs to skip media whose
+     * stored identifier is missing or malformed before issuing useless API
+     * calls.
+     */
+    public function isValidIdentifier(string $identifier): bool;
 }

@@ -373,14 +373,32 @@ class NakalaConnector implements RepositoryConnectorInterface
             $mode = 'replace';
         }
 
-        $newMetas = $media && $item
-            ? $this->buildNakalaMetas($metadata, $media, $item)
-            : $this->buildNakalaMetasMinimal($metadata);
+        // Build new metas without injecting Untitled/year/CC-BY-4.0 fallbacks:
+        // for "replace", missing mandatory must come from the remote rather
+        // than from default placeholders, so the operator does not silently
+        // overwrite a legitimate remote value with a default.
+        $newMetas = $this->buildNakalaMetasFlat($metadata);
 
         if ($mode === 'replace') {
-            $metas = $newMetas;
+            $metas = $this->fillMandatoryFromRemote($identifier, $newMetas);
+            if ($metas === null) {
+                return false;
+            }
         } else {
             $remote = $this->fetchData($identifier);
+            if ($remote === null) {
+                $this->lastError = 'Cannot fetch remote record ' . $identifier
+                    . ': ' . $this->lastError;
+                $this->logger->err(
+                    'Nakala: aborting sync (mode={mode}) for {id}: {error}', // @translate
+                    [
+                        'mode' => $mode,
+                        'id' => $identifier,
+                        'error' => $this->lastError,
+                    ]
+                );
+                return false;
+            }
             $existingMetas = is_array($remote['metas'] ?? null)
                 ? $remote['metas']
                 : [];
@@ -506,6 +524,27 @@ class NakalaConnector implements RepositoryConnectorInterface
     public function getLastError(): string
     {
         return $this->lastError;
+    }
+
+    public function isValidIdentifier(string $identifier): bool
+    {
+        // Accept any Nakala persistent identifier shape: bare DOI
+        // (10.NNNN/...nkl....), DOI prefixed with "doi:", or full
+        // resolver URL (https://nakala.fr/..., https://doi.org/...).
+        // Strip schemes/prefixes/host before checking the DOI body.
+        $id = trim($identifier);
+        if ($id === '') {
+            return false;
+        }
+        $id = preg_replace(
+            '~^(https?://(?:doi\.org|(?:apitest\.|test\.)?nakala\.fr)/|doi:|hdl:)~i',
+            '',
+            $id
+        );
+        return (bool) preg_match(
+            '~^10\.\d{4,9}/[A-Za-z0-9._-]*nkl\.[A-Za-z0-9._-]+$~',
+            $id
+        );
     }
 
     /**
@@ -713,6 +752,38 @@ class NakalaConnector implements RepositoryConnectorInterface
             return $prefixes[$parts[0]] . $parts[1];
         }
         return $term;
+    }
+
+    /**
+     * For sync mode "replace", complete the new metas with mandatory Nakala
+     * metas borrowed from the remote record rather than from hard-coded
+     * placeholders.
+     */
+    protected function fillMandatoryFromRemote(
+        string $identifier,
+        array $newMetas
+    ): ?array {
+        $missing = $this->checkMandatoryMetas($newMetas);
+        if (!$missing) {
+            return $newMetas;
+        }
+        $remote = $this->fetchData($identifier);
+        if ($remote === null) {
+            $this->lastError = 'Cannot fetch remote record ' . $identifier
+                . ' to recover mandatory metas: ' . $this->lastError;
+            $this->logger->err(
+                'Nakala: aborting replace for {id}: {error}', // @translate
+                ['id' => $identifier, 'error' => $this->lastError]
+            );
+            return null;
+        }
+        $existing = is_array($remote['metas'] ?? null) ? $remote['metas'] : [];
+        foreach ($existing as $meta) {
+            if (in_array($meta['propertyUri'] ?? '', $missing, true)) {
+                $newMetas[] = $meta;
+            }
+        }
+        return $newMetas;
     }
 
     /**
