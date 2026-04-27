@@ -446,6 +446,7 @@ class ExportToRepository extends AbstractJob
         try {
             $response = $this->api->create('media', $data);
             $newMedia = $response->getContent();
+            $this->setMediaPositionAtEnd($newMedia->id(), $item->id());
             $this->logger->info(
                 'Media #{media_id}: new IIIF media #{new_id} added to item #{item_id}.', // @translate
                 [
@@ -458,6 +459,34 @@ class ExportToRepository extends AbstractJob
             $this->logger->err(
                 'Media #{media_id}: add IIIF media failed: {error}', // @translate
                 ['media_id' => $media->id(), 'error' => $e->getMessage()]
+            );
+        }
+    }
+
+    /**
+     * Position the new media after the last existing media of the item so the
+     * media collection ordering stays predictable (api->create on Media leaves
+     * position null when not provided).
+     */
+    protected function setMediaPositionAtEnd(int $newMediaId, int $itemId): void
+    {
+        try {
+            $entityManager = $this->getServiceLocator()->get('Omeka\EntityManager');
+            $maxPosition = (int) $entityManager->createQuery(
+                'SELECT MAX(m.position) FROM Omeka\Entity\Media m'
+                . ' WHERE m.item = :item AND m.id <> :id'
+            )
+                ->setParameters(['item' => $itemId, 'id' => $newMediaId])
+                ->getSingleScalarResult();
+            $newMedia = $entityManager->find(\Omeka\Entity\Media::class, $newMediaId);
+            if ($newMedia) {
+                $newMedia->setPosition($maxPosition + 1);
+                $entityManager->flush();
+            }
+        } catch (\Throwable $e) {
+            $this->logger->warn(
+                'Media #{media_id}: cannot set position: {error}', // @translate
+                ['media_id' => $newMediaId, 'error' => $e->getMessage()]
             );
         }
     }
