@@ -10,12 +10,14 @@ $translate = $plugins->get('translate');
 $form->prepare();
 
 $this->htmlElement('body')->appendAttribute('class', 'iiif-from-file');
+
+$this->headScript()->appendFile($this->assetUrl('js/iiif-from-file.js', 'IiifFromFile'));
 ?>
 
 <?= $this->pageTitle($translate('IIIF from File')) ?>
 
 <p>
-    <?= $translate('Export local image files to a remote IIIF-compatible repository. The local files will be replaced by IIIF image references.') // @translate ?>
+    <?= $translate('Export local items and media files to a remote repository.') ?>
 </p>
 
 <?= $this->form()->openTag($form) ?>

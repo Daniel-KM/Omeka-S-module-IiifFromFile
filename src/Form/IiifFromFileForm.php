@@ -2,6 +2,7 @@
 
 namespace IiifFromFile\Form;
 
+use Common\Form\Element as CommonElement;
 use Laminas\Form\Element;
 use Laminas\Form\Form;
 use Omeka\Form\Element as OmekaElement;
@@ -18,7 +19,6 @@ class IiifFromFileForm extends Form
                 'type' => OmekaElement\Query::class,
                 'options' => [
                     'label' => 'Items to export', // @translate
-                    'info' => 'Select items whose media files will be exported. Leave empty for all items.', // @translate
                     'query_resource_type' => 'items',
                     'query_partial_excludelist' => [
                         'common/advanced-search/sort',
@@ -34,11 +34,31 @@ class IiifFromFileForm extends Form
                 'type' => Element\Select::class,
                 'options' => [
                     'label' => 'Destination', // @translate
-                    'info' => 'Select the remote repository where files will be deposited.', // @translate
                     'value_options' => $this->getEndpointOptions(),
                 ],
                 'attributes' => [
                     'id' => 'endpoint',
+                    'required' => true,
+                ],
+            ])
+            ->add([
+                'name' => 'api_user',
+                'type' => Element\Text::class,
+                'options' => [
+                    'label' => 'Endpoint user', // @translate
+                ],
+                'attributes' => [
+                    'id' => 'api_user',
+                ],
+            ])
+            ->add([
+                'name' => 'api_key',
+                'type' => Element\Password::class,
+                'options' => [
+                    'label' => 'Endpoint authentication key', // @translate
+                ],
+                'attributes' => [
+                    'id' => 'api_key',
                     'required' => true,
                 ],
             ])
@@ -70,8 +90,7 @@ class IiifFromFileForm extends Form
                 'name' => 'default_lang',
                 'type' => Element\Text::class,
                 'options' => [
-                    'label' => 'Default language code when supported', // @translate
-                    'info' => 'BCP-47 language tag used for textual metadata when no per-value language is set.', // @translate
+                    'label' => 'Default language code for values when supported', // @translate
                 ],
                 'attributes' => [
                     'id' => 'default_lang',
@@ -117,10 +136,9 @@ class IiifFromFileForm extends Form
 
             ->add([
                 'name' => 'property_identifier',
-                'type' => OmekaElement\PropertySelect::class,
+                'type' => CommonElement\OptionalPropertySelect::class,
                 'options' => [
-                    'label' => 'Store remote identifier in media property', // @translate
-                    'info' => 'If set, the remote identifier (e.g. Nakala DOI) will be added to this property on the media.', // @translate
+                    'label' => 'Store remote identifier (doi, ark…) in media property', // @translate
                     'empty_option' => 'Do not store', // @translate
                     'term_as_value' => true,
                 ],
@@ -132,10 +150,9 @@ class IiifFromFileForm extends Form
             ])
             ->add([
                 'name' => 'property_url',
-                'type' => OmekaElement\PropertySelect::class,
+                'type' => CommonElement\OptionalPropertySelect::class,
                 'options' => [
                     'label' => 'Store remote IIIF URL in media property', // @translate
-                    'info' => 'If set, the IIIF image URL will be added to this property on the media.', // @translate
                     'empty_option' => 'Do not store', // @translate
                     'term_as_value' => true,
                 ],
@@ -147,32 +164,8 @@ class IiifFromFileForm extends Form
             ])
 
             ->add([
-                'name' => 'api_user',
-                'type' => Element\Text::class,
-                'options' => [
-                    'label' => 'API user', // @translate
-                    'info' => 'Username or email for the remote API (if required).', // @translate
-                ],
-                'attributes' => [
-                    'id' => 'api_user',
-                ],
-            ])
-            ->add([
-                'name' => 'api_key',
-                'type' => Element\Password::class,
-                'options' => [
-                    'label' => 'API key', // @translate
-                    'info' => 'Authentication key for the remote API.', // @translate
-                ],
-                'attributes' => [
-                    'id' => 'api_key',
-                    'required' => true,
-                ],
-            ])
-
-            ->add([
                 'name' => 'media_mode',
-                'type' => Element\Radio::class,
+                'type' => CommonElement\OptionalRadio::class,
                 'options' => [
                     'label' => 'Media (iiif or url) handling after deposit', // @translate
                     'label_attributes' => [
@@ -182,8 +175,6 @@ class IiifFromFileForm extends Form
                         'add' => 'Add a new media to the item and keep original one', // @translate
                         'convert_delete_original' => 'Convert media and delete the original file', // @translate
                         'convert_delete' => 'Convert media and delete original and derivative files', // @translate
-                        // This option is too much complicated and has no real usage.
-                        // 'convert' => 'Convert media and keep original and derivatives files (use Easy Admin to delete or restore them)', // @translate
                     ],
                 ],
                 'attributes' => [
@@ -193,7 +184,7 @@ class IiifFromFileForm extends Form
             ])
             ->add([
                 'name' => 'ingester',
-                'type' => Element\Radio::class,
+                'type' => CommonElement\OptionalRadio::class,
                 'options' => [
                     'label' => 'Ingester for converted or new media', // @translate
                     'label_attributes' => [
@@ -214,7 +205,7 @@ class IiifFromFileForm extends Form
 
             ->add([
                 'name' => 'action',
-                'type' => Element\Radio::class,
+                'type' => CommonElement\OptionalRadio::class,
                 'options' => [
                     'label' => 'Action', // @translate
                     'value_options' => [
@@ -230,7 +221,7 @@ class IiifFromFileForm extends Form
 
             ->add([
                 'name' => 'sync_mode',
-                'type' => Element\Radio::class,
+                'type' => CommonElement\OptionalRadio::class,
                 'options' => [
                     'label' => 'Sync mode', // @translate
                     'label_attributes' => [
@@ -249,7 +240,7 @@ class IiifFromFileForm extends Form
             ])
             ->add([
                 'name' => 'sync_status',
-                'type' => Element\Select::class,
+                'type' => CommonElement\OptionalSelect::class,
                 'options' => [
                     'label' => 'Status to set on sync', // @translate
                     'info' => 'When syncing, optionally update the remote status. Nakala: pending/published; Dataverse: published.', // @translate
