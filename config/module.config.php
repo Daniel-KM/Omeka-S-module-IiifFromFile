@@ -44,7 +44,7 @@ return [
     ],
     'form_elements' => [
         'invokables' => [
-            Form\ExportForm::class => Form\ExportForm::class,
+            Form\IiifFromFileForm::class => Form\IiifFromFileForm::class,
         ],
     ],
     'translator' => [

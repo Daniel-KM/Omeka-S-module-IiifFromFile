@@ -1,12 +1,15 @@
 <?php
 /**
  * @var \Laminas\View\Renderer\PhpRenderer $this
- * @var \IiifFromFile\Form\ExportForm $form
+ * @var \IiifFromFile\Form\IiifFromFileForm $form
  */
 
-$translate = $this->plugin('translate');
-$this->htmlElement('body')->appendAttribute('class', 'iiif-from-file');
+$plugins = $this->getHelperPluginManager();
+$translate = $plugins->get('translate');
+
 $form->prepare();
+
+$this->htmlElement('body')->appendAttribute('class', 'iiif-from-file');
 ?>
 
 <?= $this->pageTitle($translate('IIIF from File')) ?>
@@ -21,10 +24,13 @@ $form->prepare();
     <?= $this->formElement($form->get('submit')) ?>
 </div>
 
-<?php foreach ($form as $element):
+<?php
+
+foreach ($form as $element):
     $name = $element->getName();
     if ($name === 'submit') continue;
     echo $this->formRow($element);
-endforeach; ?>
+endforeach;
+?>
 
 <?= $this->form()->closeTag() ?>

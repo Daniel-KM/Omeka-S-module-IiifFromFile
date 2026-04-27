@@ -102,6 +102,19 @@ interface RepositoryConnectorInterface
     public function buildIiifInfoUrl(array $dataResult): string;
 
     /**
+     * Preferred Omeka ingester for media converted on this repository. Returns
+     * "iiif" when the repository serves a IIIF Image API, else "url" to keep a
+     * direct file URL as source.
+     */
+    public function getPreferredIngester(): string;
+
+    /**
+     * Direct access URL to the deposited file (used when the preferred ingester
+     * is "url"). Empty when not applicable.
+     */
+    public function buildAccessUrl(array $dataResult): string;
+
+    /**
      * Get the last error message (for logging).
      */
     public function getLastError(): string;

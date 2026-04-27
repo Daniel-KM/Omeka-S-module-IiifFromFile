@@ -250,6 +250,20 @@ class DataverseConnector implements RepositoryConnectorInterface
         return $this->iiifBaseUrl . '/' . rawurlencode($fileId) . '/info.json';
     }
 
+    public function getPreferredIngester(): string
+    {
+        return $this->iiifBaseUrl ? 'iiif' : 'url';
+    }
+
+    public function buildAccessUrl(array $dataResult): string
+    {
+        $fileId = (string) ($dataResult['file_id'] ?? '');
+        if (!$fileId) {
+            return '';
+        }
+        return $this->apiUrl . '/api/access/datafile/' . rawurlencode($fileId);
+    }
+
     public function updateData(string $identifier, array $metadata): bool
     {
         $this->lastError = '';

@@ -2,11 +2,12 @@
 
 namespace IiifFromFile\Form;
 
+use Common\Form\Element as CommonElement;
 use Laminas\Form\Element;
 use Laminas\Form\Form;
 use Omeka\Form\Element as OmekaElement;
 
-class ExportForm extends Form
+class IiifFromFileForm extends Form
 {
     public function init(): void
     {
@@ -29,7 +30,7 @@ class ExportForm extends Form
                 'type' => OmekaElement\ArrayTextarea::class,
                 'options' => [
                     'label' => 'Collection / deposit parameters', // @translate
-                    'info' => 'Parameters for the remote collection or deposit, one key=value per line. "collection_id" is the parent container on the remote: a Nakala collection identifier (e.g. 10.34847/nkl.xxxx) for Nakala, or a parent dataverse alias for Dataverse (the account must have Dataset Creator rights on it). "status" is "pending" or "published".', // @translate
+                    'info' => 'Parameters for the remote collection or deposit, one key=value per line. "collection_id" is the parent container on the remote: a Nakala collection identifier (e.g. 10.34847/nkl.xxxx) for Nakala, or a parent dataverse alias for Dataverse. "status" is "pending" or "published".', // @translate
                     'as_key_value' => true,
                 ],
                 'attributes' => [
@@ -64,14 +65,9 @@ class ExportForm extends Form
                     'info' => <<<'TXT'
                         Map local properties to remote metadata. One mapping per line.
                         Format: remote_property = local_source
-                        The local source can be a property (dcterms:title), a prefixed item property (o:item/dcterms:title), or a fixed value in quotes.
-                        Nakala mandatory metadata (nakala:title, nakala:creator, nakala:type, nakala:created, nakala:license) are added automatically with defaults if not mapped.
-                        Examples:
-                        nakala:title = o:item/dcterms:title
-                        nakala:creator = o:item/dcterms:creator
-                        nakala:license = "CC-BY-4.0"
-                        dcterms:description = o:item/dcterms:description
+                        The local source can be a property (dcterms:title), a prefixed item property (o:item/dcterms:title), or a fixed value in quotes. See readme for more info about mandatory metadata.
                         TXT, // @translate
+                  'documentation' => 'https://gitlab.com/Daniel-KM/Omeka-S-module-IiifFromFile',
                 ],
                 'attributes' => [
                     'id' => 'metadata_mapping',
@@ -155,21 +151,36 @@ class ExportForm extends Form
                 'name' => 'media_mode',
                 'type' => Element\Radio::class,
                 'options' => [
-                    'label' => 'Media handling after deposit', // @translate
+                    'label' => 'Media (iiif or url) handling after deposit', // @translate
                     'label_attributes' => [
                         'style' => 'display: inline-block;',
                     ],
-                    'info' => 'How to update the Omeka media once the file is deposited on the remote repository.', // @translate
+                    'info' => 'How to update the Omeka media once the file is deposited. The connector picks the ingester IIIF when the repository supports it, otherwise url.', // @translate
                     'value_options' => [
-                        'add' => 'Add a new IIIF media to the item and keep original media', // @translate
-                        'convert_delete_original' => 'Convert media to IIIF and delete the original file', // @translate
-                        'convert_delete' => 'Convert media to IIIF and delete original and derivative files', // @translate
-                        'convert' => 'Convert media to IIIF and keep original and derivatives files (use Easy Admin to delete or restore them)', // @translate
+                        'add' => 'Add a new media to the item as iiif or url and keep original media', // @translate
+                        'convert_delete_original' => 'Convert media to iiif or url and delete the original file', // @translate
+                        'convert_delete' => 'Convert media and delete original and derivative files', // @translate
+                        'convert' => 'Convert media and keep original and derivatives files (use Easy Admin to delete or restore them)', // @translate
                     ],
                 ],
                 'attributes' => [
                     'id' => 'media_mode',
                     'value' => 'add',
+                ],
+            ])
+            ->add([
+                'name' => 'store_original',
+                'type' => CommonElement\OptionalRadio::class,
+                'options' => [
+                    'label' => 'Original file when the repository does not support iiif', // @translate
+                    'value_options' => [
+                        '0' => 'Use url from the remote endpoint (warning: it may be protected)', // @translate
+                        '1' => 'Keep a local copy', // @translate
+                    ],
+                ],
+                'attributes' => [
+                    'id' => 'store_original',
+                    'value' => '0',
                 ],
             ])
             ->add([

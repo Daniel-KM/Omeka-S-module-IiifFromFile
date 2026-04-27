@@ -335,6 +335,21 @@ class NakalaConnector implements RepositoryConnectorInterface
             . '/' . $sha1 . '/info.json';
     }
 
+    public function getPreferredIngester(): string
+    {
+        return 'iiif';
+    }
+
+    public function buildAccessUrl(array $dataResult): string
+    {
+        $identifier = $dataResult['identifier'] ?? '';
+        $sha1 = $dataResult['sha1'] ?? '';
+        if (!$identifier || !$sha1) {
+            return '';
+        }
+        return $this->apiUrl . '/data/' . $identifier . '/' . $sha1;
+    }
+
     public function updateData(string $identifier, array $metadata): bool
     {
         $this->lastError = '';

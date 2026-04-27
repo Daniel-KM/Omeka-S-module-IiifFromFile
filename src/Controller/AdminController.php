@@ -3,7 +3,7 @@
 namespace IiifFromFile\Controller;
 
 use Common\Stdlib\PsrMessage;
-use IiifFromFile\Form\ExportForm;
+use IiifFromFile\Form\IiifFromFileForm;
 use IiifFromFile\Job\ExportToRepository;
 use IiifFromFile\Job\SyncToRepository;
 use Laminas\Mvc\Controller\AbstractActionController;
@@ -19,7 +19,7 @@ class AdminController extends AbstractActionController
         $endpoints = $config['iiiffromfile']['endpoints'] ?? [];
 
         $form = $services->get('FormElementManager')
-            ->get(ExportForm::class);
+            ->get(IiifFromFileForm::class);
         $form->setOption('endpoints', $endpoints);
         $form->init();
 
