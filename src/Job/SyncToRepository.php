@@ -52,6 +52,8 @@ class SyncToRepository extends AbstractJob
             'api_user' => $args['api_user'] ?? '',
         ]);
 
+        $this->redactApiKey();
+
         $test = $connector->testConnection();
         if (!$test['ok']) {
             $this->logger->err(
@@ -192,5 +194,28 @@ class SyncToRepository extends AbstractJob
         }
         $v = $item->value($source);
         return $v ? (string) $v : null;
+    }
+
+    /**
+     * Replace the api_key in the persisted job arguments with a placeholder so
+     * the secret is not retained in the job table or exposed via logs and admin
+     * pages.
+     */
+    protected function redactApiKey(): void
+    {
+        if (!$this->job) {
+            return;
+        }
+        $args = $this->job->getArgs() ?? [];
+        if (!isset($args['api_key']) || $args['api_key'] === ''
+            || $args['api_key'] === '***'
+        ) {
+            return;
+        }
+        $args['api_key'] = '***';
+        $this->job->setArgs($args);
+        $this->getServiceLocator()
+            ->get('Omeka\EntityManager')
+            ->flush();
     }
 }

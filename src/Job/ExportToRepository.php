@@ -49,6 +49,10 @@ class ExportToRepository extends AbstractJob
             'api_user' => $args['api_user'] ?? '',
         ]);
 
+        // Redact the api_key from the persisted job arguments so the secret is
+        // not retained in the job table or surfaced in logs.
+        $this->redactApiKey();
+
         // Test connection first.
         $test = $connector->testConnection();
         if (!$test['ok']) {
@@ -644,5 +648,28 @@ class ExportToRepository extends AbstractJob
     public function buildIiifUrl(string $apiUrl, string $id, string $sha1): string
     {
         return rtrim($apiUrl, '/') . '/iiif/' . $id . '/' . $sha1 . '/full/max/0/default.jpg';
+    }
+
+    /**
+     * Replace the api_key in the persisted job arguments with a placeholder so
+     * the secret is not retained in the job table or exposed via logs and admin
+     * pages.
+     */
+    protected function redactApiKey(): void
+    {
+        if (!$this->job) {
+            return;
+        }
+        $args = $this->job->getArgs() ?? [];
+        if (!isset($args['api_key']) || $args['api_key'] === ''
+            || $args['api_key'] === '***'
+        ) {
+            return;
+        }
+        $args['api_key'] = '***';
+        $this->job->setArgs($args);
+        $this->getServiceLocator()
+            ->get('Omeka\EntityManager')
+            ->flush();
     }
 }
