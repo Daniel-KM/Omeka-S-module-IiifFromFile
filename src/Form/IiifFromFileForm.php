@@ -98,6 +98,24 @@ class IiifFromFileForm extends Form
                 ],
             ])
             ->add([
+                'name' => 'file_name_mode',
+                'type' => CommonElement\OptionalRadio::class,
+                'options' => [
+                    'label' => 'File name sent to repository', // @translate
+                    'label_attributes' => [
+                        'style' => 'display: inline;',
+                    ],
+                    'value_options' => [
+                        'source' => 'Original source name', // @translate
+                        'hash' => 'Omeka hashed storage name', // @translate
+                    ],
+                ],
+                'attributes' => [
+                    'id' => 'file_name_mode',
+                    'value' => 'source',
+                ],
+            ])
+            ->add([
                 'name' => 'other_params',
                 'type' => OmekaElement\ArrayTextarea::class,
                 'options' => [

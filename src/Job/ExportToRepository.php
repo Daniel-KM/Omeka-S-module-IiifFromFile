@@ -2,6 +2,7 @@
 
 namespace IiifFromFile\Job;
 
+use Common\Stdlib\PsrMessage;
 use IiifFromFile\Repository\RepositoryConnectorInterface;
 use Omeka\Api\Representation\MediaRepresentation;
 use Omeka\Job\AbstractJob;
@@ -79,6 +80,9 @@ class ExportToRepository extends AbstractJob
         if (!empty($args['status'])) {
             $otherParams['status'] = $args['status'];
         }
+        $otherParams['file_name_mode'] = ($args['file_name_mode'] ?? '') === 'hash'
+            ? 'hash'
+            : 'source';
         $metadataMapping = $args['metadata_mapping'] ?? [];
         $propertyIdentifier = $args['property_identifier'] ?? '';
         $propertyUrl = $args['property_url'] ?? '';
@@ -128,12 +132,20 @@ class ExportToRepository extends AbstractJob
 
                 ++$this->totalProcessed;
 
-                $success = $this->exportMedia(
-                    $connector, $media, $item,
-                    $otherParams, $metadataMapping,
-                    $propertyIdentifier, $propertyUrl, $mediaMode,
-                    $ingesterChoice, $storeOriginal
-                );
+                try {
+                    $success = $this->exportMedia(
+                        $connector, $media, $item,
+                        $otherParams, $metadataMapping,
+                        $propertyIdentifier, $propertyUrl, $mediaMode,
+                        $ingesterChoice, $storeOriginal
+                    );
+                } catch (\Throwable $e) {
+                    $success = false;
+                    $this->logger->err(new PsrMessage(
+                        'Media #{media_id}: unexpected error, skipping: {error}', // @translate
+                        ['media_id' => $media->id(), 'error' => $e->getMessage()]
+                    ));
+                }
 
                 if ($success) {
                     ++$this->totalSucceed;

@@ -206,11 +206,16 @@ class NakalaConnector implements RepositoryConnectorInterface
         // Build Nakala metas from flat metadata.
         $metas = $this->buildNakalaMetas($metadata, $media, $item);
 
+        $fileName = ($otherParams['file_name_mode'] ?? 'source') === 'hash'
+            ? ($media->filename() ?: ($media->source() ?: 'file.jpg'))
+            : ($media->source() ?: ($media->filename() ?: 'file.jpg'));
+        $fileName = basename(strtr($fileName, '\\', '/'));
+
         $body = [
             'files' => [
                 [
                     'sha1' => $sha1,
-                    'name' => $media->filename() ?: ($media->source() ?: 'file.jpg'),
+                    'name' => $fileName,
                 ],
             ],
             'metas' => $metas,
